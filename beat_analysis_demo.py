@@ -3,6 +3,7 @@
 import librosa
 import numpy as np
 import matplotlib.pyplot as plt
+import json
 from pathlib import Path
 
 # 配置matplotlib中文字体支持
@@ -106,7 +107,67 @@ def analyze_tempo_and_beats(audio_file="molihua.mp4"):
     
     print()
     
-    # 5. 可视化
+    # 5. 保存beats信息到JSON文件
+    print("💾 保存beats信息到JSON文件...")
+    
+    # 准备要保存的数据
+    beats_data = {
+        "audio_file": audio_file,
+        "metadata": {
+            "sample_rate": int(sr),
+            "audio_duration_seconds": float(len(y) / sr),
+            "analysis_timestamp": str(np.datetime64('now'))
+        },
+        "tempo": {
+            "value": float(tempo_value),
+            "classification": tempo_class,
+            "beat_interval_seconds": float(beat_interval)
+        },
+        "beats": {
+            "total_count": int(len(beats)),
+            "time_positions": beats.tolist(),  # 转换为Python list
+            "frame_positions": beat_frames.tolist(),  # 转换为Python list
+            "time_range": {
+                "start": float(beats[0]) if len(beats) > 0 else None,
+                "end": float(beats[-1]) if len(beats) > 0 else None
+            }
+        },
+        "analysis": {
+            "beat_intervals": {
+                "values": beat_intervals.tolist() if len(beats) > 1 else [],
+                "average": float(avg_interval) if len(beats) > 1 else None,
+                "standard_deviation": float(std_interval) if len(beats) > 1 else None,
+                "regularity": "高" if len(beats) > 1 and std_interval < 0.05 else "中" if len(beats) > 1 and std_interval < 0.1 else "低" if len(beats) > 1 else None
+            },
+            "theoretical_vs_actual": {
+                "theoretical_interval": float(theoretical_interval),
+                "actual_average_interval": float(avg_interval) if len(beats) > 1 else None,
+                "error": float(abs(avg_interval - theoretical_interval)) if len(beats) > 1 else None
+            }
+        }
+    }
+    
+    # 生成JSON文件名
+    audio_name = Path(audio_file).stem
+    json_filename = f"{audio_name}_beats_analysis.json"
+    
+    # 保存JSON文件
+    try:
+        with open(json_filename, 'w', encoding='utf-8') as f:
+            json.dump(beats_data, f, indent=2, ensure_ascii=False)
+        print(f"✅ beats信息已保存到: {json_filename}")
+        print(f"📊 保存的数据包括:")
+        print(f"   - Tempo: {tempo_value:.2f} BPM")
+        print(f"   - 拍点数量: {len(beats)} 个")
+        print(f"   - 时间位置: {len(beats)} 个时间点")
+        print(f"   - 帧位置: {len(beat_frames)} 个帧索引")
+        print(f"   - 分析统计数据")
+    except Exception as e:
+        print(f"❌ 保存JSON文件时出错: {e}")
+    
+    print()
+    
+    # 6. 可视化
     print("🎨 生成可视化图表...")
     
     # 创建图表
@@ -164,7 +225,7 @@ def analyze_tempo_and_beats(audio_file="molihua.mp4"):
     print("💾 可视化图表已保存为: beat_analysis_visualization.png")
     plt.show()
     
-    # 6. 实际应用示例
+    # 7. 实际应用示例
     print("\n🛠️  实际应用场景:")
     print("-" * 30)
     print("1. 🎧 音乐播放器: 自动BPM显示")
