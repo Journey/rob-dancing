@@ -2,10 +2,19 @@
 function robtic() {
 let scene, camera, renderer, head, body, leftArm, rightArm, leftLeg, rightLeg;
         let upperTorso, waist; // 身体部分变量
+        let leftThigh, rightThigh; // 大腿变量
+        let bodyGroup; // 身体组
         let spotLight1, spotLight2; // 全局光源变量
         let mouseX = 0, mouseY = 0;
         let isMouseDown = false;
         let cameraAngleX = 0, cameraAngleY = 0;
+        
+        // 舞蹈数据相关变量
+        let danceData = null;
+        let currentDanceIndex = 0;
+        let danceStartTime = 0;
+        let isDanceMode = false;
+        let danceModeEnabled = true;
         
         // 音频和节拍相关变量
         let audioPlayer;
@@ -173,11 +182,138 @@ let scene, camera, renderer, head, body, leftArm, rightArm, leftLeg, rightLeg;
             // 初始化音频
             initAudio();
             
+            // 加载舞蹈数据
+            loadDanceData().then(success => {
+                if (success) {
+                    console.log('舞蹈数据加载完成');
+                }
+            });
+            
             // 添加事件监听器
             setupEventListeners();
             
             // 开始渲染
             animate();
+        }
+        
+        // 加载舞蹈数据
+        async function loadDanceData() {
+            try {
+                const response = await fetch('data/molihua_dance.json');
+                danceData = await response.json();
+                console.log('舞蹈数据加载成功:', danceData);
+                return true;
+            } catch (error) {
+                console.error('加载舞蹈数据失败:', error);
+                return false;
+            }
+        }
+        
+        // 开始舞蹈模式
+        function startDanceMode() {
+            if (!danceData) {
+                console.warn('舞蹈数据未加载');
+                return;
+            }
+            isDanceMode = true;
+            currentDanceIndex = 0;
+            danceStartTime = performance.now();
+            console.log('开始舞蹈模式');
+        }
+        
+        // 停止舞蹈模式
+        function stopDanceMode() {
+            isDanceMode = false;
+            currentDanceIndex = 0;
+            console.log('停止舞蹈模式');
+        }
+        
+        // 更新舞蹈动画
+        function updateDanceAnimation() {
+            if (!isDanceMode || !danceModeEnabled || !danceData || !danceData.dance_sequence) return;
+            
+            const currentTime = (performance.now() - danceStartTime) / 1000;
+            const sequence = danceData.dance_sequence;
+            
+            // 查找当前时间对应的舞蹈动作
+            while (currentDanceIndex < sequence.length) {
+                const move = sequence[currentDanceIndex];
+                const moveEndTime = move.time + move.duration;
+                
+                if (currentTime <= moveEndTime) {
+                    // 应用当前舞蹈动作
+                    applyDanceMove(move, currentTime - move.time, move.duration);
+                    break;
+                }
+                currentDanceIndex++;
+            }
+            
+            // 如果所有动作都完成了，重新开始
+            if (currentDanceIndex >= sequence.length) {
+                currentDanceIndex = 0;
+                danceStartTime = performance.now();
+            }
+        }
+        
+        // 应用舞蹈动作
+        function applyDanceMove(move, elapsed, duration) {
+            if (!head || !leftArm || !rightArm || !leftLeg || !rightLeg || !leftThigh || !rightThigh) return;
+            
+            const progress = Math.min(elapsed / duration, 1);
+            const intensity = move.intensity || 0.5;
+            
+            // 增强动作幅度
+            const amplitudeMultiplier = 3.0; // 增加动作幅度
+            
+            // 根据关节类型应用动作
+            switch (move.joint) {
+                case 'head_yaw':
+                    head.rotation.y = THREE.MathUtils.degToRad(move.target_angle * intensity * amplitudeMultiplier);
+                    break;
+                case 'head_pitch':
+                    head.rotation.x = THREE.MathUtils.degToRad(move.target_angle * intensity * amplitudeMultiplier);
+                    break;
+                case 'shoulder_left':
+                    // 手臂摆动 - 前后摆动
+                    leftArm.rotation.x = THREE.MathUtils.degToRad(move.target_angle * intensity * amplitudeMultiplier);
+                    // 添加一些侧向摆动
+                    leftArm.rotation.y = THREE.MathUtils.degToRad(move.target_angle * 0.5 * intensity * amplitudeMultiplier);
+                    break;
+                case 'shoulder_right':
+                    // 手臂摆动 - 前后摆动
+                    rightArm.rotation.x = THREE.MathUtils.degToRad(move.target_angle * intensity * amplitudeMultiplier);
+                    // 添加一些侧向摆动
+                    rightArm.rotation.y = THREE.MathUtils.degToRad(-move.target_angle * 0.5 * intensity * amplitudeMultiplier);
+                    break;
+                case 'hip_left':
+                    // 大腿摆动 - 前后摆动
+                    leftThigh.rotation.x = THREE.MathUtils.degToRad(move.target_angle * intensity * amplitudeMultiplier);
+                    break;
+                case 'hip_right':
+                    // 大腿摆动 - 前后摆动
+                    rightThigh.rotation.x = THREE.MathUtils.degToRad(move.target_angle * intensity * amplitudeMultiplier);
+                    break;
+                case 'knee_left':
+                    // 膝盖弯曲
+                    leftLeg.rotation.z = THREE.MathUtils.degToRad(move.target_angle * intensity * amplitudeMultiplier);
+                    break;
+                case 'knee_right':
+                    // 膝盖弯曲
+                    rightLeg.rotation.z = THREE.MathUtils.degToRad(move.target_angle * intensity * amplitudeMultiplier);
+                    break;
+                case 'ankle_left':
+                    // 脚踝动作
+                    if (leftLeg.parent && leftLeg.parent.parent) {
+                        leftLeg.parent.parent.rotation.z = THREE.MathUtils.degToRad(move.target_angle * 0.8 * intensity * amplitudeMultiplier);
+                    }
+                    break;
+                case 'ankle_right':
+                    // 脚踝动作
+                    if (rightLeg.parent && rightLeg.parent.parent) {
+                        rightLeg.parent.parent.rotation.z = THREE.MathUtils.degToRad(move.target_angle * 0.8 * intensity * amplitudeMultiplier);
+                    }
+                    break;
+            }
         }
         
         function initAudio() {
@@ -206,10 +342,14 @@ let scene, camera, renderer, head, body, leftArm, rightArm, leftLeg, rightLeg;
                 audioPlayer.play();
                 btn.textContent = '暂停';
                 btn.classList.add('playing');
+                // 开始舞蹈模式
+                startDanceMode();
             } else {
                 audioPlayer.pause();
                 btn.textContent = '播放';
                 btn.classList.remove('playing');
+                // 停止舞蹈模式
+                stopDanceMode();
             }
         }
         
@@ -219,6 +359,9 @@ let scene, camera, renderer, head, body, leftArm, rightArm, leftLeg, rightLeg;
              document.getElementById('playPauseBtn').textContent = '播放';
              document.getElementById('playPauseBtn').classList.remove('playing');
              currentBeatIndex = 0;
+             
+             // 停止舞蹈模式
+             stopDanceMode();
              
              // 重置所有动画状态
              beatAnimation.isAnimating = false;
@@ -360,169 +503,186 @@ let scene, camera, renderer, head, body, leftArm, rightArm, leftLeg, rightLeg;
          }
         
         function createCharacter() {
-            // 阿童木的材质定义
-            const skinMaterial = new THREE.MeshPhongMaterial({ 
-                color: 0xFFE4B5,  // 阿童木的肌肤色
-                shininess: 40,
-                specular: 0x222222
-            });
+            // 材质定义
+            const skinMaterial = new THREE.MeshPhongMaterial({ color: 0xFFE4B5, shininess: 40, specular: 0x222222 });
+            const metalMaterial = new THREE.MeshPhongMaterial({ color: 0xC0C0C0, shininess: 100, specular: 0x888888, metalness: 0.8 });
+            const hairMaterial = new THREE.MeshPhongMaterial({ color: 0x1A1A1A, shininess: 80 });
+            const redMaterial = new THREE.MeshPhongMaterial({ color: 0xDC143C, shininess: 30 });
+            const blueMaterial = new THREE.MeshPhongMaterial({ color: 0x0047AB, shininess: 25 });
+            const blackMaterial = new THREE.MeshPhongMaterial({ color: 0x2F2F2F, shininess: 50 });
+
+            // 1. 整体组 - 从地面开始
+            bodyGroup = new THREE.Group();
+            bodyGroup.position.y = 0; // 从地面开始
+            scene.add(bodyGroup);
+
+            // 2. 腿部（连接到bodyGroup）
+            const thighGeometry = new THREE.CylinderGeometry(0.15, 0.18, 1.2, 12);
+            leftThigh = new THREE.Mesh(thighGeometry, skinMaterial);
+            leftThigh.position.set(-0.25, 0.6, 0); // 从地面开始
+            leftThigh.castShadow = true;
+            bodyGroup.add(leftThigh);
             
-            const metalMaterial = new THREE.MeshPhongMaterial({ 
-                color: 0xC0C0C0,  // 银色金属
-                shininess: 100,
-                specular: 0x888888,
-                metalness: 0.8
-            });
+            rightThigh = new THREE.Mesh(thighGeometry, skinMaterial);
+            rightThigh.position.set(0.25, 0.6, 0);
+            rightThigh.castShadow = true;
+            bodyGroup.add(rightThigh);
             
-            const hairMaterial = new THREE.MeshPhongMaterial({ 
-                color: 0x1A1A1A,  // 阿童木的黑色头发
-                shininess: 80 
-            });
+            // 膝关节
+            const kneeJointGeometry = new THREE.SphereGeometry(0.12, 12, 8);
+            const leftKneeJoint = new THREE.Mesh(kneeJointGeometry, metalMaterial);
+            leftKneeJoint.position.set(0, -0.7, 0);
+            leftThigh.add(leftKneeJoint);
             
-            const redMaterial = new THREE.MeshPhongMaterial({ 
-                color: 0xDC143C,  // 阿童木的红色服装
-                shininess: 30 
-            });
+            const rightKneeJoint = new THREE.Mesh(kneeJointGeometry, metalMaterial);
+            rightKneeJoint.position.set(0, -0.7, 0);
+            rightThigh.add(rightKneeJoint);
             
-            const blueMaterial = new THREE.MeshPhongMaterial({ 
-                color: 0x0047AB,  // 阿童木的蓝色短裤
-                shininess: 25 
-            });
+            // 小腿
+            const calfGeometry = new THREE.CylinderGeometry(0.12, 0.15, 1.0, 12);
+            leftLeg = new THREE.Mesh(calfGeometry, skinMaterial);
+            leftLeg.position.set(0, -0.6, 0);
+            leftLeg.castShadow = true;
+            leftKneeJoint.add(leftLeg);
             
-            const blackMaterial = new THREE.MeshPhongMaterial({ 
-                color: 0x2F2F2F,  // 黑色细节
-                shininess: 50 
-            });
+            rightLeg = new THREE.Mesh(calfGeometry, skinMaterial);
+            rightLeg.position.set(0, -0.6, 0);
+            rightLeg.castShadow = true;
+            rightKneeJoint.add(rightLeg);
             
-            // 阿童木的身体结构
-            // 阿童木的躯干 - 红色上衣
-            const torsoGeometry = new THREE.CylinderGeometry(0.4, 0.45, 1.2, 16);
-            upperTorso = new THREE.Mesh(torsoGeometry, redMaterial);
-            upperTorso.position.y = 3.0;
-            upperTorso.castShadow = true;
-            scene.add(upperTorso);
+            // 脚踝
+            const ankleJointGeometry = new THREE.SphereGeometry(0.1, 12, 8);
+            const leftAnkleJoint = new THREE.Mesh(ankleJointGeometry, metalMaterial);
+            leftAnkleJoint.position.set(0, -0.6, 0);
+            leftLeg.add(leftAnkleJoint);
             
-            // 胸前的能量核心 - 阿童木特色
-            const chestCoreGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.06, 16);
-            const chestCoreMaterial = new THREE.MeshPhongMaterial({ 
-                color: 0x4169E1,
-                shininess: 100,
-                emissive: 0x001122,
-                transparent: true,
-                opacity: 0.8
-            });
-            const chestCore = new THREE.Mesh(chestCoreGeometry, chestCoreMaterial);
-            chestCore.position.set(0, 0.2, 0.42);
-            chestCore.rotation.x = Math.PI / 2;
-            upperTorso.add(chestCore);
+            const rightAnkleJoint = new THREE.Mesh(ankleJointGeometry, metalMaterial);
+            rightAnkleJoint.position.set(0, -0.6, 0);
+            rightLeg.add(rightAnkleJoint);
             
-            // 能量核心内圈
-            const innerCoreGeometry = new THREE.CylinderGeometry(0.08, 0.08, 0.08, 12);
-            const innerCoreMaterial = new THREE.MeshPhongMaterial({ 
-                color: 0x87CEEB,
-                shininess: 150,
-                emissive: 0x002244
-            });
-            const innerCore = new THREE.Mesh(innerCoreGeometry, innerCoreMaterial);
-            innerCore.position.set(0, 0, 0);
-            chestCore.add(innerCore);
+            // 靴子 - 确保接触地板
+            const bootGeometry = new THREE.BoxGeometry(0.35, 0.4, 0.7);
+            const leftBoot = new THREE.Mesh(bootGeometry, redMaterial);
+            leftBoot.position.set(0, -0.2, 0.1); // 调整位置确保接触地板
+            leftAnkleJoint.add(leftBoot);
             
-            // 腰部 - 连接红色上衣和蓝色短裤
-            const waistGeometry = new THREE.CylinderGeometry(0.35, 0.4, 0.3, 16);
-            waist = new THREE.Mesh(waistGeometry, skinMaterial);
-            waist.position.y = 2.2;
-            waist.castShadow = true;
-            scene.add(waist);
+            const rightBoot = new THREE.Mesh(bootGeometry, redMaterial);
+            rightBoot.position.set(0, -0.2, 0.1); // 调整位置确保接触地板
+            rightAnkleJoint.add(rightBoot);
             
-            // 蓝色短裤
+            // 鞋底
+            const solGeometry = new THREE.BoxGeometry(0.4, 0.1, 0.75);
+            const leftSole = new THREE.Mesh(solGeometry, blackMaterial);
+            leftSole.position.set(0, -0.25, 0.05); // 确保鞋底接触地板
+            leftBoot.add(leftSole);
+            
+            const rightSole = new THREE.Mesh(solGeometry, blackMaterial);
+            rightSole.position.set(0, -0.25, 0.05); // 确保鞋底接触地板
+            rightBoot.add(rightSole);
+
+            // 3. 蓝色短裤（躯干下部）- 连接到腿部
             const shortsGeometry = new THREE.CylinderGeometry(0.4, 0.42, 0.6, 16);
             body = new THREE.Mesh(shortsGeometry, blueMaterial);
-            body.position.y = 1.7;
+            body.position.y = 1.2; // 在腿部上方
             body.castShadow = true;
-            scene.add(body);
-            
-            // 阿童木的大头部 - 更圆润可爱
-            const headGeometry = new THREE.SphereGeometry(0.55, 24, 20);
-            head = new THREE.Mesh(headGeometry, skinMaterial);
-            head.position.set(0, 4.2, 0);
-            head.scale.set(1, 1.05, 1); // 稍微拉伸
-            head.castShadow = true;
-            scene.add(head);
-            
-            // 颈部 - 更细
+            bodyGroup.add(body);
+
+            // 4. 腰部 - 连接到短裤
+            const waistGeometry = new THREE.CylinderGeometry(0.35, 0.4, 0.3, 16);
+            waist = new THREE.Mesh(waistGeometry, skinMaterial);
+            waist.position.y = 1.8; // 在短裤上方，紧密连接
+            waist.castShadow = true;
+            bodyGroup.add(waist);
+
+            // 5. 躯干（红色）- 连接到腰部
+            const torsoGeometry = new THREE.CylinderGeometry(0.4, 0.45, 1.2, 16);
+            upperTorso = new THREE.Mesh(torsoGeometry, redMaterial);
+            upperTorso.position.y = 2.4; // 在腰部上方，紧密连接
+            upperTorso.castShadow = true;
+            bodyGroup.add(upperTorso);
+
+            // 6. 颈部
             const neckGeometry = new THREE.CylinderGeometry(0.15, 0.18, 0.25, 12);
             const neck = new THREE.Mesh(neckGeometry, skinMaterial);
-            neck.position.y = 3.7;
+            neck.position.y = 3.6; // 在躯干上方 (2.4 + 1.2 = 3.6)
             neck.castShadow = true;
-            scene.add(neck);
-            
-            // 阿童木的标志性刺猬头发型
+            bodyGroup.add(neck);
+
+            // 7. 头部
+            const headGeometry = new THREE.SphereGeometry(0.55, 24, 20);
+            head = new THREE.Mesh(headGeometry, skinMaterial);
+            head.position.set(0, 4.0, 0); // 在颈部上方 (3.6 + 0.25 + 0.15 = 4.0)
+            head.scale.set(1, 1.05, 1);
+            head.castShadow = true;
+            bodyGroup.add(head);
+
+            // 添加头发
             const hairTopGeometry = new THREE.SphereGeometry(0.52, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.7);
             const hairTop = new THREE.Mesh(hairTopGeometry, hairMaterial);
             hairTop.position.set(0, 0.15, -0.1);
             hairTop.scale.set(1, 1.2, 0.9);
             head.add(hairTop);
-            
-            // 阿童木的标志性前发尖
+
+            // 前发尖
             const frontSpikeGeometry = new THREE.ConeGeometry(0.08, 0.3, 8);
             const frontSpike1 = new THREE.Mesh(frontSpikeGeometry, hairMaterial);
             frontSpike1.position.set(-0.15, 0.4, 0.35);
             frontSpike1.rotation.x = -Math.PI / 6;
             frontSpike1.rotation.z = -Math.PI / 8;
             head.add(frontSpike1);
-            
+
             const frontSpike2 = new THREE.Mesh(frontSpikeGeometry, hairMaterial);
             frontSpike2.position.set(0.15, 0.4, 0.35);
             frontSpike2.rotation.x = -Math.PI / 6;
             frontSpike2.rotation.z = Math.PI / 8;
             head.add(frontSpike2);
-            
-            // 侧面的发尖
+
+            // 侧发尖
             const sideSpikeGeometry = new THREE.ConeGeometry(0.06, 0.25, 8);
             const leftSideSpike = new THREE.Mesh(sideSpikeGeometry, hairMaterial);
             leftSideSpike.position.set(-0.4, 0.25, 0.1);
             leftSideSpike.rotation.z = -Math.PI / 4;
             head.add(leftSideSpike);
-            
+
             const rightSideSpike = new THREE.Mesh(sideSpikeGeometry, hairMaterial);
-            rightSideSpike.position.set(0.4, 0.25, 0.1);
+            rightSideSpike.position.set(0, 0.25, 0.1);
             rightSideSpike.rotation.z = Math.PI / 4;
             head.add(rightSideSpike);
-            
-            // 阿童木的大眼睛
+
+            // 眼睛
             const eyeWhiteGeometry = new THREE.SphereGeometry(0.18, 16, 12);
             const eyeWhiteMaterial = new THREE.MeshPhongMaterial({ 
                 color: 0xFFFFFF,
                 shininess: 100,
                 specular: 0x444444
             });
-            
+
             const leftEye = new THREE.Mesh(eyeWhiteGeometry, eyeWhiteMaterial);
             leftEye.position.set(-0.22, 0.05, 0.45);
             leftEye.scale.set(1, 1.2, 0.8);
             head.add(leftEye);
-            
+
             const rightEye = new THREE.Mesh(eyeWhiteGeometry, eyeWhiteMaterial);
             rightEye.position.set(0.22, 0.05, 0.45);
             rightEye.scale.set(1, 1.2, 0.8);
             head.add(rightEye);
-            
-            // 阿童木的黑色瞳孔 - 非常大
+
+            // 瞳孔
             const pupilGeometry = new THREE.SphereGeometry(0.12, 12, 8);
             const pupilMaterial = new THREE.MeshPhongMaterial({ 
                 color: 0x1A1A1A,
                 shininess: 100 
             });
-            
+
             const leftPupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
             leftPupil.position.set(0, 0, 0.05);
             leftEye.add(leftPupil);
-            
+
             const rightPupil = new THREE.Mesh(pupilGeometry, pupilMaterial);
             rightPupil.position.set(0, 0, 0.05);
             rightEye.add(rightPupil);
-            
-            // 眼中的高光点 - 阿童木特色
+
+            // 高光
             const highlightGeometry = new THREE.SphereGeometry(0.03, 8, 6);
             const highlightMaterial = new THREE.MeshPhongMaterial({ 
                 color: 0xFFFFFF,
@@ -530,172 +690,88 @@ let scene, camera, renderer, head, body, leftArm, rightArm, leftLeg, rightLeg;
                 transparent: true,
                 opacity: 0.9
             });
-            
+
             const leftHighlight = new THREE.Mesh(highlightGeometry, highlightMaterial);
             leftHighlight.position.set(-0.02, 0.03, 0.08);
             leftPupil.add(leftHighlight);
-            
+
             const rightHighlight = new THREE.Mesh(highlightGeometry, highlightMaterial);
             rightHighlight.position.set(-0.02, 0.03, 0.08);
             rightPupil.add(rightHighlight);
-            
-            // 阿童木的简单小鼻子
+
+            // 鼻子
             const noseGeometry = new THREE.SphereGeometry(0.02, 8, 6);
             const nose = new THREE.Mesh(noseGeometry, skinMaterial);
             nose.position.set(0, -0.08, 0.52);
             head.add(nose);
-            
-            // 阿童木的简单小嘴
+
+            // 嘴巴
             const mouthGeometry = new THREE.SphereGeometry(0.04, 8, 6, 0, Math.PI);
             const mouthMaterial = new THREE.MeshPhongMaterial({ color: 0xFF6B6B });
             const mouth = new THREE.Mesh(mouthGeometry, mouthMaterial);
             mouth.position.set(0, -0.22, 0.5);
             mouth.rotation.x = Math.PI;
             head.add(mouth);
-            
-            // 阿童木的机械手臂
-            // 肩膀关节 - 金属球形关节
+
+            // 8. 手臂（连接到upperTorso）
             const shoulderJointGeometry = new THREE.SphereGeometry(0.15, 12, 8);
             const leftShoulderJoint = new THREE.Mesh(shoulderJointGeometry, metalMaterial);
-            leftShoulderJoint.position.set(-0.55, 3.6, 0);
+            leftShoulderJoint.position.set(-0.55, 0.6, 0);
             leftShoulderJoint.castShadow = true;
-            scene.add(leftShoulderJoint);
+            upperTorso.add(leftShoulderJoint);
             
             const rightShoulderJoint = new THREE.Mesh(shoulderJointGeometry, metalMaterial);
-            rightShoulderJoint.position.set(0.55, 3.6, 0);
+            rightShoulderJoint.position.set(0.55, 0.6, 0);
             rightShoulderJoint.castShadow = true;
-            scene.add(rightShoulderJoint);
-            
-            // 左上臂 - 简洁的圆柱形
+            upperTorso.add(rightShoulderJoint);
+
+            // 左上臂
             const upperArmGeometry = new THREE.CylinderGeometry(0.1, 0.12, 1.0, 12);
             leftArm = new THREE.Mesh(upperArmGeometry, skinMaterial);
-            leftArm.position.set(-0.6, 2.9, 0);
-            leftArm.rotation.z = Math.PI / 20;
+            leftArm.position.set(0, -0.5, 0);
             leftArm.castShadow = true;
-            scene.add(leftArm);
+            leftShoulderJoint.add(leftArm);
             
-            // 左肘关节 - 金属关节
+            // 左肘关节 - 确保连接
             const elbowJointGeometry = new THREE.SphereGeometry(0.1, 12, 8);
             const leftElbowJoint = new THREE.Mesh(elbowJointGeometry, metalMaterial);
-            leftElbowJoint.position.set(0, -0.6, 0);
+            leftElbowJoint.position.set(0, -0.6, 0); // 确保与上臂连接
             leftArm.add(leftElbowJoint);
             
-            // 左前臂
+            // 左前臂 - 确保连接
             const forearmGeometry = new THREE.CylinderGeometry(0.08, 0.1, 0.8, 12);
             const leftForearm = new THREE.Mesh(forearmGeometry, skinMaterial);
-            leftForearm.position.set(0, -1.0, 0);
-            leftArm.add(leftForearm);
+            leftForearm.position.set(0, -0.5, 0); // 调整位置确保与肘关节连接
+            leftElbowJoint.add(leftForearm);
             
-            // 左手 - 阿童木风格的简单手
+            // 左手
             const handGeometry = new THREE.SphereGeometry(0.12, 12, 8);
             const leftHand = new THREE.Mesh(handGeometry, skinMaterial);
             leftHand.position.set(0, -0.5, 0);
             leftHand.scale.set(1, 1.2, 0.8);
             leftForearm.add(leftHand);
-            
+
             // 右上臂
             rightArm = new THREE.Mesh(upperArmGeometry, skinMaterial);
-            rightArm.position.set(0.6, 2.9, 0);
-            rightArm.rotation.z = -Math.PI / 20;
+            rightArm.position.set(0, -0.5, 0);
             rightArm.castShadow = true;
-            scene.add(rightArm);
+            rightShoulderJoint.add(rightArm);
             
-            // 右肘关节
+            // 右肘关节 - 确保连接
             const rightElbowJoint = new THREE.Mesh(elbowJointGeometry, metalMaterial);
-            rightElbowJoint.position.set(0, -0.6, 0);
+            rightElbowJoint.position.set(0, -0.6, 0); // 确保与上臂连接
             rightArm.add(rightElbowJoint);
             
-            // 右前臂
+            // 右前臂 - 确保连接
             const rightForearm = new THREE.Mesh(forearmGeometry, skinMaterial);
-            rightForearm.position.set(0, -1.0, 0);
-            rightArm.add(rightForearm);
+            rightForearm.position.set(0, -0.5, 0); // 调整位置确保与肘关节连接
+            rightElbowJoint.add(rightForearm);
             
             // 右手
             const rightHand = new THREE.Mesh(handGeometry, skinMaterial);
             rightHand.position.set(0, -0.5, 0);
             rightHand.scale.set(1, 1.2, 0.8);
             rightForearm.add(rightHand);
-            
-            // 阿童木的腿部结构
-            // 左大腿 - 简洁圆柱形
-            const thighGeometry = new THREE.CylinderGeometry(0.15, 0.18, 1.2, 12);
-            const leftThigh = new THREE.Mesh(thighGeometry, skinMaterial);
-            leftThigh.position.set(-0.25, 1.2, 0);
-            leftThigh.castShadow = true;
-            scene.add(leftThigh);
-            
-            // 左膝关节 - 金属关节
-            const kneeJointGeometry = new THREE.SphereGeometry(0.12, 12, 8);
-            const leftKneeJoint = new THREE.Mesh(kneeJointGeometry, metalMaterial);
-            leftKneeJoint.position.set(-0.25, 0.5, 0);
-            leftKneeJoint.castShadow = true;
-            scene.add(leftKneeJoint);
-            
-            // 左小腿
-            const calfGeometry = new THREE.CylinderGeometry(0.12, 0.15, 1.0, 12);
-            leftLeg = new THREE.Mesh(calfGeometry, skinMaterial);
-            leftLeg.position.set(-0.25, -0.2, 0);
-            leftLeg.castShadow = true;
-            scene.add(leftLeg);
-            
-            // 左脚踝关节
-            const ankleJointGeometry = new THREE.SphereGeometry(0.1, 12, 8);
-            const leftAnkleJoint = new THREE.Mesh(ankleJointGeometry, metalMaterial);
-            leftAnkleJoint.position.set(-0.25, -0.8, 0);
-            leftAnkleJoint.castShadow = true;
-            scene.add(leftAnkleJoint);
-            
-            // 左红色靴子 - 阿童木标志性红靴
-            const bootGeometry = new THREE.BoxGeometry(0.35, 0.4, 0.7);
-            const leftBoot = new THREE.Mesh(bootGeometry, redMaterial);
-            leftBoot.position.set(-0.25, -1.1, 0.1);
-            leftBoot.castShadow = true;
-            scene.add(leftBoot);
-            
-            // 靴子底部 - 更厚的鞋底
-            const solGeometry = new THREE.BoxGeometry(0.4, 0.1, 0.75);
-            const leftSole = new THREE.Mesh(solGeometry, blackMaterial);
-            leftSole.position.set(-0.25, -1.35, 0.1);
-            leftSole.castShadow = true;
-            scene.add(leftSole);
-            
-            // 右大腿
-            const rightThigh = new THREE.Mesh(thighGeometry, skinMaterial);
-            rightThigh.position.set(0.25, 1.2, 0);
-            rightThigh.castShadow = true;
-            scene.add(rightThigh);
-            
-            // 右膝关节
-            const rightKneeJoint = new THREE.Mesh(kneeJointGeometry, metalMaterial);
-            rightKneeJoint.position.set(0.25, 0.5, 0);
-            rightKneeJoint.castShadow = true;
-            scene.add(rightKneeJoint);
-            
-            // 右小腿
-            rightLeg = new THREE.Mesh(calfGeometry, skinMaterial);
-            rightLeg.position.set(0.25, -0.2, 0);
-            rightLeg.castShadow = true;
-            scene.add(rightLeg);
-            
-            // 右脚踝关节
-            const rightAnkleJoint = new THREE.Mesh(ankleJointGeometry, metalMaterial);
-            rightAnkleJoint.position.set(0.25, -0.8, 0);
-            rightAnkleJoint.castShadow = true;
-            scene.add(rightAnkleJoint);
-            
-            // 右红色靴子
-            const rightBoot = new THREE.Mesh(bootGeometry, redMaterial);
-            rightBoot.position.set(0.25, -1.1, 0.1);
-            rightBoot.castShadow = true;
-            scene.add(rightBoot);
-            
-            // 右靴子底部
-            const rightSole = new THREE.Mesh(solGeometry, blackMaterial);
-            rightSole.position.set(0.25, -1.35, 0.1);
-            rightSole.castShadow = true;
-            scene.add(rightSole);
-            
-            // 阿童木标志性细节完成
         }
         
         function setupEventListeners() {
@@ -750,6 +826,17 @@ let scene, camera, renderer, head, body, leftArm, rightArm, leftLeg, rightLeg;
             
             // 窗口大小调整
             window.addEventListener('resize', onWindowResize);
+            
+            // 舞蹈模式开关
+            const danceModeCheckbox = document.getElementById('enableDanceMode');
+            if (danceModeCheckbox) {
+                danceModeCheckbox.addEventListener('change', function() {
+                    danceModeEnabled = this.checked;
+                    if (!danceModeEnabled) {
+                        stopDanceMode();
+                    }
+                });
+            }
         }
         
         function onMouseDown(event) {
@@ -880,6 +967,9 @@ let scene, camera, renderer, head, body, leftArm, rightArm, leftLeg, rightLeg;
              updateBeatAnimation();
              updateArmAnimation();
              
+             // 更新舞蹈动画
+             updateDanceAnimation();
+             
              // 时间变量
              const time = Date.now() * 0.001;
              
@@ -910,8 +1000,8 @@ let scene, camera, renderer, head, body, leftArm, rightArm, leftLeg, rightLeg;
                  head.rotation.x += Math.cos(time * 0.7) * 0.0005;
              }
              
-             // 只有在没有节拍同步或手臂动画未激活时才应用默认手臂动画
-             if (!beatSyncEnabled || !armAnimation.isAnimating) {
+             // 只有在没有节拍同步、手臂动画未激活且不在舞蹈模式时才应用默认手臂动画
+             if ((!beatSyncEnabled || !armAnimation.isAnimating) && !isDanceMode) {
                  // 更自然的手臂摆动
                  leftArm.rotation.x = Math.sin(time * 0.7) * 0.08;
                  rightArm.rotation.x = Math.sin(time * 0.7 + Math.PI) * 0.08;
@@ -934,6 +1024,32 @@ let scene, camera, renderer, head, body, leftArm, rightArm, leftLeg, rightLeg;
              // 衣服的微妙摆动
              if (typeof waist !== 'undefined') {
                  waist.rotation.z = Math.sin(time * 0.9) * 0.015;
+             }
+             
+             // 舞蹈模式下的特殊效果
+             if (isDanceMode && danceData) {
+                 // 增强舞台灯光效果
+                 if (typeof spotLight1 !== 'undefined') {
+                     spotLight1.intensity = 1.5 + Math.sin(time * 2) * 0.3;
+                     spotLight2.intensity = 0.8 + Math.cos(time * 1.8) * 0.2;
+                 }
+                 
+                 // 身体摆动配合舞蹈
+                 if (typeof upperTorso !== 'undefined') {
+                     upperTorso.rotation.z = Math.sin(time * 1.5) * 0.05;
+                     upperTorso.rotation.x = Math.sin(time * 2.0) * 0.03;
+                 }
+                 
+                 // 腰部摆动
+                 if (typeof waist !== 'undefined') {
+                     waist.rotation.z = Math.sin(time * 1.8) * 0.04;
+                 }
+                 
+                 // 身体组整体摆动
+                 if (bodyGroup) {
+                     bodyGroup.rotation.y = Math.sin(time * 0.8) * 0.02;
+                     bodyGroup.position.y = 2.0 + Math.sin(time * 1.2) * 0.02;
+                 }
              }
              
              renderer.render(scene, camera);
