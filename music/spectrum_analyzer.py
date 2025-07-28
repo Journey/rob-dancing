@@ -349,17 +349,3 @@ def analyze_audio_spectrum(file_path: str, save_dir: Optional[str] = None,
         analyzer.plot_spectral_features(features)
     
     return features
-
-
-if __name__ == "__main__":
-    # Example usage
-    try:
-        analyzer = SpectrumAnalyzer()
-        features = analyzer.analyze_audio_file('molihua.mp4', save_dir='spectrum_output')
-        print("Analysis complete! Features extracted:")
-        print(f"Tempo: {features['tempo']:.2f} BPM")
-        print(f"Average spectral centroid: {np.mean(features['spectral_centroid']):.2f} Hz")
-    except FileNotFoundError:
-        print("Please place an audio file to analyze in the project directory.")
-    except Exception as e:
-        print(f"Error: {e}") 

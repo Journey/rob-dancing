@@ -113,26 +113,3 @@ def load_and_plot_audio(file_path: str, figsize: Tuple[int, int] = (12, 4),
     """
     visualizer = AudioVisualizer(figsize=figsize)
     visualizer.visualize_audio_file(file_path, title=title, save_path=save_path, show=show)
-
-
-# Example usage that matches the original code
-def main():
-    """Example usage of the audio visualization functions."""
-    # This matches the original code structure
-    try:
-        y, sr = librosa.load('song.mp3')
-        plt.figure(figsize=(12, 4))
-        librosa.display.waveshow(y, sr=sr)
-        plt.title('Audio Waveform')
-        plt.xlabel('Time (s)')
-        plt.ylabel('Amplitude')
-        plt.tight_layout()
-        plt.show()
-    except FileNotFoundError:
-        print("Please place a 'song.mp3' file in the project directory to run this example.")
-    except Exception as e:
-        print(f"Error loading audio: {e}")
-
-
-if __name__ == "__main__":
-    main() 
