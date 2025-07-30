@@ -1,6 +1,6 @@
 // 3D模型
 function robtic() {
-let scene, camera, renderer, head, body, leftArm, rightArm, leftLeg, rightLeg;
+        let scene, camera, renderer, head, body, leftArm, rightArm, leftLeg, rightLeg;
         let upperTorso, waist; // 身体部分变量
         let leftThigh, rightThigh; // 大腿变量
         let bodyGroup; // 身体组
@@ -503,154 +503,241 @@ let scene, camera, renderer, head, body, leftArm, rightArm, leftLeg, rightLeg;
          }
         
         function createCharacter() {
-            // 材质定义
+            // 材质定义 - 优化材质
             const skinMaterial = new THREE.MeshPhongMaterial({ color: 0xFFE4B5, shininess: 40, specular: 0x222222 });
-            const metalMaterial = new THREE.MeshPhongMaterial({ color: 0xC0C0C0, shininess: 100, specular: 0x888888, metalness: 0.8 });
+            const metalMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0xC0C0C0, // 更自然的银色
+                shininess: 40,   // 降低光泽度
+                specular: 0x222222 
+            });
             const hairMaterial = new THREE.MeshPhongMaterial({ color: 0x1A1A1A, shininess: 80 });
-            const redMaterial = new THREE.MeshPhongMaterial({ color: 0xDC143C, shininess: 30 });
-            const blueMaterial = new THREE.MeshPhongMaterial({ color: 0x0047AB, shininess: 25 });
+            const redMaterial = new THREE.MeshPhongMaterial({ color: 0xB22222, shininess: 25 }); // 更深的红色
+            const blueMaterial = new THREE.MeshPhongMaterial({ color: 0x1E3A8A, shininess: 20 }); // 更深的蓝色
             const blackMaterial = new THREE.MeshPhongMaterial({ color: 0x2F2F2F, shininess: 50 });
 
-            // 1. 整体组 - 从地面开始
+            // 1. 整体组 - 建立正确的层级结构
             bodyGroup = new THREE.Group();
-            bodyGroup.position.y = 0; // 从地面开始
+            bodyGroup.position.y = 0.6;
             scene.add(bodyGroup);
 
-            // 2. 腿部（连接到bodyGroup）
-            const thighGeometry = new THREE.CylinderGeometry(0.15, 0.18, 1.2, 12);
+            // 2. 创建骨盆/臀部作为身体中心
+            const pelvisGeometry = new THREE.CylinderGeometry(0.35, 0.4, 0.4, 16);
+            const pelvis = new THREE.Mesh(pelvisGeometry, skinMaterial);
+            pelvis.position.y = 1.0; // 作为身体中心
+            pelvis.castShadow = true;
+            bodyGroup.add(pelvis);
+
+            // 3. 腿部 - 连接到骨盆
+            const thighGeometry = new THREE.CylinderGeometry(0.15, 0.18, 1.0, 12);
             leftThigh = new THREE.Mesh(thighGeometry, skinMaterial);
-            leftThigh.position.set(-0.25, 0.6, 0); // 从地面开始
+            leftThigh.position.set(-0.2, -0.3, 0); // 调整连接位置
             leftThigh.castShadow = true;
-            bodyGroup.add(leftThigh);
+            pelvis.add(leftThigh);
             
             rightThigh = new THREE.Mesh(thighGeometry, skinMaterial);
-            rightThigh.position.set(0.25, 0.6, 0);
+            rightThigh.position.set(0.2, -0.3, 0); // 调整连接位置
             rightThigh.castShadow = true;
-            bodyGroup.add(rightThigh);
+            pelvis.add(rightThigh);
             
             // 膝关节
             const kneeJointGeometry = new THREE.SphereGeometry(0.12, 12, 8);
             const leftKneeJoint = new THREE.Mesh(kneeJointGeometry, metalMaterial);
-            leftKneeJoint.position.set(0, -0.7, 0);
+            leftKneeJoint.position.set(0, -0.5, 0); // 修正位置
             leftThigh.add(leftKneeJoint);
             
             const rightKneeJoint = new THREE.Mesh(kneeJointGeometry, metalMaterial);
-            rightKneeJoint.position.set(0, -0.7, 0);
+            rightKneeJoint.position.set(0, -0.5, 0); // 修正位置
             rightThigh.add(rightKneeJoint);
             
             // 小腿
-            const calfGeometry = new THREE.CylinderGeometry(0.12, 0.15, 1.0, 12);
+            const calfGeometry = new THREE.CylinderGeometry(0.12, 0.15, 0.9, 12);
             leftLeg = new THREE.Mesh(calfGeometry, skinMaterial);
-            leftLeg.position.set(0, -0.6, 0);
+            leftLeg.position.set(0, -0.55, 0);
             leftLeg.castShadow = true;
             leftKneeJoint.add(leftLeg);
             
             rightLeg = new THREE.Mesh(calfGeometry, skinMaterial);
-            rightLeg.position.set(0, -0.6, 0);
+            rightLeg.position.set(0, -0.55, 0);
             rightLeg.castShadow = true;
             rightKneeJoint.add(rightLeg);
             
-            // 脚踝
+            // 脚踝关节
             const ankleJointGeometry = new THREE.SphereGeometry(0.1, 12, 8);
             const leftAnkleJoint = new THREE.Mesh(ankleJointGeometry, metalMaterial);
-            leftAnkleJoint.position.set(0, -0.6, 0);
+            leftAnkleJoint.position.set(0, -0.55, 0);
             leftLeg.add(leftAnkleJoint);
             
             const rightAnkleJoint = new THREE.Mesh(ankleJointGeometry, metalMaterial);
-            rightAnkleJoint.position.set(0, -0.6, 0);
+            rightAnkleJoint.position.set(0, -0.55, 0);
             rightLeg.add(rightAnkleJoint);
             
-            // 靴子 - 确保接触地板
-            const bootGeometry = new THREE.BoxGeometry(0.35, 0.4, 0.7);
-            const leftBoot = new THREE.Mesh(bootGeometry, redMaterial);
-            leftBoot.position.set(0, -0.2, 0.1); // 调整位置确保接触地板
-            leftAnkleJoint.add(leftBoot);
+            // 脚部 - 确保接触地面
+            const footGeometry = new THREE.BoxGeometry(0.3, 0.15, 0.6);
+            const leftFoot = new THREE.Mesh(footGeometry, skinMaterial);
+            leftFoot.position.set(0, -0.075, 0.1); // 确保接触地面
+            leftAnkleJoint.add(leftFoot);
             
-            const rightBoot = new THREE.Mesh(bootGeometry, redMaterial);
-            rightBoot.position.set(0, -0.2, 0.1); // 调整位置确保接触地板
-            rightAnkleJoint.add(rightBoot);
+            const rightFoot = new THREE.Mesh(footGeometry, skinMaterial);
+            rightFoot.position.set(0, -0.075, 0.1);
+            rightAnkleJoint.add(rightFoot);
             
-            // 鞋底
-            const solGeometry = new THREE.BoxGeometry(0.4, 0.1, 0.75);
-            const leftSole = new THREE.Mesh(solGeometry, blackMaterial);
-            leftSole.position.set(0, -0.25, 0.05); // 确保鞋底接触地板
-            leftBoot.add(leftSole);
+            // 添加脚趾 - 修正位置和角度
+            const toeGeometry = new THREE.CylinderGeometry(0.02, 0.025, 0.08, 8);
+            const toeMaterial = new THREE.MeshPhongMaterial({ color: 0xFFE4B5, shininess: 15 });
             
-            const rightSole = new THREE.Mesh(solGeometry, blackMaterial);
-            rightSole.position.set(0, -0.25, 0.05); // 确保鞋底接触地板
-            rightBoot.add(rightSole);
+            // 左脚趾 - 修正位置
+            for (let i = 0; i < 5; i++) {
+                const leftToe = new THREE.Mesh(toeGeometry, toeMaterial);
+                leftToe.position.set(-0.1 + i * 0.05, -0.075, 0.3); // 调整间距和位置
+                leftToe.rotation.x = Math.PI / 8; // 减小角度
+                leftFoot.add(leftToe);
+            }
+            
+            // 右脚趾 - 修正位置
+            for (let i = 0; i < 5; i++) {
+                const rightToe = new THREE.Mesh(toeGeometry, toeMaterial);
+                rightToe.position.set(-0.1 + i * 0.05, -0.075, 0.3); // 调整间距和位置
+                rightToe.rotation.x = Math.PI / 8; // 减小角度
+                rightFoot.add(rightToe);
+            }
+            
+            // 鞋底 - 修正连接位置
+            const soleGeometry = new THREE.BoxGeometry(0.35, 0.08, 0.65);
+            const leftSole = new THREE.Mesh(soleGeometry, blackMaterial);
+            leftSole.position.set(0, -0.12, 0.02); // 确保与脚部正确连接
+            leftFoot.add(leftSole);
+            
+            const rightSole = new THREE.Mesh(soleGeometry, blackMaterial);
+            rightSole.position.set(0, -0.12, 0.02); // 确保与脚部正确连接
+            rightFoot.add(rightSole);
 
-            // 3. 蓝色短裤（躯干下部）- 连接到腿部
-            const shortsGeometry = new THREE.CylinderGeometry(0.4, 0.42, 0.6, 16);
+            // 4. 躯干下部（蓝色短裤）- 连接到骨盆
+            const shortsGeometry = new THREE.CylinderGeometry(0.35, 0.38, 0.4, 16); // 调整比例
             body = new THREE.Mesh(shortsGeometry, blueMaterial);
-            body.position.y = 1.2; // 在腿部上方
+            body.position.y = 0.45; // 在骨盆上方，紧密连接
             body.castShadow = true;
-            bodyGroup.add(body);
+            pelvis.add(body);
 
-            // 4. 腰部 - 连接到短裤
-            const waistGeometry = new THREE.CylinderGeometry(0.35, 0.4, 0.3, 16);
+            // 5. 腰部 - 连接到短裤（修正层级结构）
+            const waistGeometry = new THREE.CylinderGeometry(0.35, 0.4, 0.25, 16);
             waist = new THREE.Mesh(waistGeometry, skinMaterial);
-            waist.position.y = 1.8; // 在短裤上方，紧密连接
+            waist.position.y = 0.36; // 在短裤上方，紧密连接
             waist.castShadow = true;
-            bodyGroup.add(waist);
+            body.add(waist); // 修正：连接到短裤而不是骨盆
 
-            // 5. 躯干（红色）- 连接到腰部
-            const torsoGeometry = new THREE.CylinderGeometry(0.4, 0.45, 1.2, 16);
+            // 6. 躯干上部（红色）- 连接到腰部（修正层级结构）
+            const torsoGeometry = new THREE.CylinderGeometry(0.35, 0.4, 0.8, 16); // 调整比例
             upperTorso = new THREE.Mesh(torsoGeometry, redMaterial);
-            upperTorso.position.y = 2.4; // 在腰部上方，紧密连接
+            upperTorso.position.y = 0.4; // 在腰部上方，紧密连接
             upperTorso.castShadow = true;
-            bodyGroup.add(upperTorso);
+            waist.add(upperTorso); // 修正：连接到腰部而不是骨盆
 
-            // 6. 颈部
-            const neckGeometry = new THREE.CylinderGeometry(0.15, 0.18, 0.25, 12);
+            // 添加胸部肌肉轮廓
+            const chestGeometry = new THREE.CylinderGeometry(0.35, 0.4, 0.6, 16);
+            const chestMaterial = new THREE.MeshPhongMaterial({ color: 0xFFE4B5, shininess: 30 });
+            const chest = new THREE.Mesh(chestGeometry, chestMaterial);
+            chest.position.y = 0.4;
+            chest.castShadow = true;
+            upperTorso.add(chest);
+
+            // 添加腹肌轮廓
+            const absGeometry = new THREE.BoxGeometry(0.3, 0.4, 0.1);
+            const abs = new THREE.Mesh(absGeometry, skinMaterial);
+            abs.position.set(0, -0.1, 0.15);
+            upperTorso.add(abs);
+
+            // 添加胸肌轮廓
+            const pectoralGeometry = new THREE.SphereGeometry(0.25, 16, 12);
+            const leftPectoral = new THREE.Mesh(pectoralGeometry, skinMaterial);
+            leftPectoral.position.set(-0.2, 0.2, 0.1);
+            leftPectoral.scale.set(0.8, 0.6, 0.3);
+            upperTorso.add(leftPectoral);
+            
+            const rightPectoral = new THREE.Mesh(pectoralGeometry, skinMaterial);
+            rightPectoral.position.set(0.2, 0.2, 0.1);
+            rightPectoral.scale.set(0.8, 0.6, 0.3);
+            upperTorso.add(rightPectoral);
+
+            // 添加脊柱结构
+            const spineGeometry = new THREE.CylinderGeometry(0.05, 0.05, 1.2, 8);
+            const spine = new THREE.Mesh(spineGeometry, skinMaterial);
+            spine.position.set(0, 0.6, -0.1);
+            upperTorso.add(spine);
+
+            // 添加锁骨 - 新增重要解剖学结构
+            const clavicleGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.3, 8);
+            const leftClavicle = new THREE.Mesh(clavicleGeometry, skinMaterial);
+            leftClavicle.position.set(-0.25, 0.6, 0);
+            leftClavicle.rotation.z = Math.PI / 6;
+            upperTorso.add(leftClavicle);
+            
+            const rightClavicle = new THREE.Mesh(clavicleGeometry, skinMaterial);
+            rightClavicle.position.set(0.25, 0.6, 0);
+            rightClavicle.rotation.z = -Math.PI / 6;
+            upperTorso.add(rightClavicle);
+
+            // 添加肩胛骨
+            const scapulaGeometry = new THREE.BoxGeometry(0.15, 0.2, 0.05);
+            const leftScapula = new THREE.Mesh(scapulaGeometry, skinMaterial);
+            leftScapula.position.set(-0.3, 0.3, -0.1);
+            leftScapula.rotation.z = Math.PI / 6;
+            upperTorso.add(leftScapula);
+            
+            const rightScapula = new THREE.Mesh(scapulaGeometry, skinMaterial);
+            rightScapula.position.set(0.3, 0.3, -0.1);
+            rightScapula.rotation.z = -Math.PI / 6;
+            upperTorso.add(rightScapula);
+
+            // 7. 颈部 - 连接到躯干（修正层级结构）
+            const neckGeometry = new THREE.CylinderGeometry(0.15, 0.18, 0.2, 12);
             const neck = new THREE.Mesh(neckGeometry, skinMaterial);
-            neck.position.y = 3.6; // 在躯干上方 (2.4 + 1.2 = 3.6)
+            neck.position.y = 0.8; // 在躯干上方，紧密连接
             neck.castShadow = true;
-            bodyGroup.add(neck);
+            upperTorso.add(neck); // 修正：连接到躯干而不是骨盆
 
-            // 7. 头部
-            const headGeometry = new THREE.SphereGeometry(0.55, 24, 20);
+            // 8. 头部 - 连接到颈部（修正层级结构）
+            const headGeometry = new THREE.SphereGeometry(0.35, 24, 20); // 减小头部大小
             head = new THREE.Mesh(headGeometry, skinMaterial);
-            head.position.set(0, 4.0, 0); // 在颈部上方 (3.6 + 0.25 + 0.15 = 4.0)
+            head.position.set(0, 0.5, 0); // 在颈部上方，紧密连接
             head.scale.set(1, 1.05, 1);
             head.castShadow = true;
-            bodyGroup.add(head);
+            neck.add(head); // 修正：连接到颈部而不是骨盆
 
-            // 添加头发
-            const hairTopGeometry = new THREE.SphereGeometry(0.52, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.7);
-            const hairTop = new THREE.Mesh(hairTopGeometry, hairMaterial);
+            // 添加头发 - 使用更自然的几何体
+            const hairGeometry = new THREE.SphereGeometry(0.37, 16, 12, 0, Math.PI * 2, 0, Math.PI * 0.7);
+            const hairTop = new THREE.Mesh(hairGeometry, hairMaterial);
             hairTop.position.set(0, 0.15, -0.1);
-            hairTop.scale.set(1, 1.2, 0.9);
+            hairTop.scale.set(1, 1.1, 0.8); // 更自然的形状
             head.add(hairTop);
 
-            // 前发尖
-            const frontSpikeGeometry = new THREE.ConeGeometry(0.08, 0.3, 8);
+            // 前发尖 - 使用更自然的形状
+            const frontSpikeGeometry = new THREE.ConeGeometry(0.06, 0.25, 8); // 减小尺寸
             const frontSpike1 = new THREE.Mesh(frontSpikeGeometry, hairMaterial);
-            frontSpike1.position.set(-0.15, 0.4, 0.35);
-            frontSpike1.rotation.x = -Math.PI / 6;
-            frontSpike1.rotation.z = -Math.PI / 8;
+            frontSpike1.position.set(-0.12, 0.35, 0.3);
+            frontSpike1.rotation.x = -Math.PI / 8; // 减小角度
+            frontSpike1.rotation.z = -Math.PI / 10;
             head.add(frontSpike1);
 
             const frontSpike2 = new THREE.Mesh(frontSpikeGeometry, hairMaterial);
-            frontSpike2.position.set(0.15, 0.4, 0.35);
-            frontSpike2.rotation.x = -Math.PI / 6;
-            frontSpike2.rotation.z = Math.PI / 8;
+            frontSpike2.position.set(0.12, 0.35, 0.3);
+            frontSpike2.rotation.x = -Math.PI / 8;
+            frontSpike2.rotation.z = Math.PI / 10;
             head.add(frontSpike2);
 
-            // 侧发尖
-            const sideSpikeGeometry = new THREE.ConeGeometry(0.06, 0.25, 8);
+            // 侧发尖 - 使用更自然的形状
+            const sideSpikeGeometry = new THREE.ConeGeometry(0.05, 0.2, 8); // 减小尺寸
             const leftSideSpike = new THREE.Mesh(sideSpikeGeometry, hairMaterial);
-            leftSideSpike.position.set(-0.4, 0.25, 0.1);
-            leftSideSpike.rotation.z = -Math.PI / 4;
+            leftSideSpike.position.set(-0.35, 0.2, 0.08);
+            leftSideSpike.rotation.z = -Math.PI / 6; // 减小角度
             head.add(leftSideSpike);
 
             const rightSideSpike = new THREE.Mesh(sideSpikeGeometry, hairMaterial);
-            rightSideSpike.position.set(0, 0.25, 0.1);
-            rightSideSpike.rotation.z = Math.PI / 4;
+            rightSideSpike.position.set(0.35, 0.2, 0.08);
+            rightSideSpike.rotation.z = Math.PI / 6;
             head.add(rightSideSpike);
 
-            // 眼睛
-            const eyeWhiteGeometry = new THREE.SphereGeometry(0.18, 16, 12);
+            // 眼睛 - 减小尺寸
+            const eyeWhiteGeometry = new THREE.SphereGeometry(0.12, 16, 12); // 从0.18减小到0.12
             const eyeWhiteMaterial = new THREE.MeshPhongMaterial({ 
                 color: 0xFFFFFF,
                 shininess: 100,
@@ -658,17 +745,17 @@ let scene, camera, renderer, head, body, leftArm, rightArm, leftLeg, rightLeg;
             });
 
             const leftEye = new THREE.Mesh(eyeWhiteGeometry, eyeWhiteMaterial);
-            leftEye.position.set(-0.22, 0.05, 0.45);
+            leftEye.position.set(-0.18, 0.05, 0.35); // 调整位置
             leftEye.scale.set(1, 1.2, 0.8);
             head.add(leftEye);
 
             const rightEye = new THREE.Mesh(eyeWhiteGeometry, eyeWhiteMaterial);
-            rightEye.position.set(0.22, 0.05, 0.45);
+            rightEye.position.set(0.18, 0.05, 0.35); // 调整位置
             rightEye.scale.set(1, 1.2, 0.8);
             head.add(rightEye);
 
-            // 瞳孔
-            const pupilGeometry = new THREE.SphereGeometry(0.12, 12, 8);
+            // 瞳孔 - 相应调整
+            const pupilGeometry = new THREE.SphereGeometry(0.08, 12, 8); // 从0.12减小到0.08
             const pupilMaterial = new THREE.MeshPhongMaterial({ 
                 color: 0x1A1A1A,
                 shininess: 100 
@@ -683,7 +770,7 @@ let scene, camera, renderer, head, body, leftArm, rightArm, leftLeg, rightLeg;
             rightEye.add(rightPupil);
 
             // 高光
-            const highlightGeometry = new THREE.SphereGeometry(0.03, 8, 6);
+            const highlightGeometry = new THREE.SphereGeometry(0.02, 8, 6); // 减小尺寸
             const highlightMaterial = new THREE.MeshPhongMaterial({ 
                 color: 0xFFFFFF,
                 shininess: 200,
@@ -692,86 +779,187 @@ let scene, camera, renderer, head, body, leftArm, rightArm, leftLeg, rightLeg;
             });
 
             const leftHighlight = new THREE.Mesh(highlightGeometry, highlightMaterial);
-            leftHighlight.position.set(-0.02, 0.03, 0.08);
+            leftHighlight.position.set(-0.01, 0.02, 0.06);
             leftPupil.add(leftHighlight);
 
             const rightHighlight = new THREE.Mesh(highlightGeometry, highlightMaterial);
-            rightHighlight.position.set(-0.02, 0.03, 0.08);
+            rightHighlight.position.set(-0.01, 0.02, 0.06);
             rightPupil.add(rightHighlight);
 
             // 鼻子
             const noseGeometry = new THREE.SphereGeometry(0.02, 8, 6);
             const nose = new THREE.Mesh(noseGeometry, skinMaterial);
-            nose.position.set(0, -0.08, 0.52);
+            nose.position.set(0, -0.08, 0.42); // 调整位置
             head.add(nose);
 
             // 嘴巴
             const mouthGeometry = new THREE.SphereGeometry(0.04, 8, 6, 0, Math.PI);
             const mouthMaterial = new THREE.MeshPhongMaterial({ color: 0xFF6B6B });
             const mouth = new THREE.Mesh(mouthGeometry, mouthMaterial);
-            mouth.position.set(0, -0.22, 0.5);
+            mouth.position.set(0, -0.22, 0.4); // 调整位置
             mouth.rotation.x = Math.PI;
             head.add(mouth);
 
-            // 8. 手臂（连接到upperTorso）
+            // 添加眉毛
+            const eyebrowGeometry = new THREE.BoxGeometry(0.06, 0.02, 0.02); // 减小尺寸
+            const eyebrowMaterial = new THREE.MeshPhongMaterial({ color: 0x1A1A1A });
+            const leftEyebrow = new THREE.Mesh(eyebrowGeometry, eyebrowMaterial);
+            leftEyebrow.position.set(-0.18, 0.12, 0.35); // 调整位置
+            leftEyebrow.rotation.z = -Math.PI / 12;
+            head.add(leftEyebrow);
+
+            const rightEyebrow = new THREE.Mesh(eyebrowGeometry, eyebrowMaterial);
+            rightEyebrow.position.set(0.18, 0.12, 0.35); // 调整位置
+            rightEyebrow.rotation.z = Math.PI / 12;
+            head.add(rightEyebrow);
+
+            // 添加耳朵
+            const earGeometry = new THREE.SphereGeometry(0.06, 12, 8, 0, Math.PI); // 减小尺寸
+            const leftEar = new THREE.Mesh(earGeometry, skinMaterial);
+            leftEar.position.set(-0.36, 0, 0.15); // 调整位置
+            leftEar.rotation.x = Math.PI / 2;
+            head.add(leftEar);
+
+            const rightEar = new THREE.Mesh(earGeometry, skinMaterial);
+            rightEar.position.set(0.36, 0, 0.15); // 调整位置
+            rightEar.rotation.x = Math.PI / 2;
+            head.add(rightEar);
+
+            // 9. 手臂系统 - 连接到躯干上部（修正层级结构）
             const shoulderJointGeometry = new THREE.SphereGeometry(0.15, 12, 8);
             const leftShoulderJoint = new THREE.Mesh(shoulderJointGeometry, metalMaterial);
-            leftShoulderJoint.position.set(-0.55, 0.6, 0);
+            leftShoulderJoint.position.set(-0.45, 0.4, 0); // 调整位置更贴近身体
             leftShoulderJoint.castShadow = true;
             upperTorso.add(leftShoulderJoint);
             
             const rightShoulderJoint = new THREE.Mesh(shoulderJointGeometry, metalMaterial);
-            rightShoulderJoint.position.set(0.55, 0.6, 0);
+            rightShoulderJoint.position.set(0.45, 0.4, 0); // 调整位置更贴近身体
             rightShoulderJoint.castShadow = true;
             upperTorso.add(rightShoulderJoint);
 
-            // 左上臂
-            const upperArmGeometry = new THREE.CylinderGeometry(0.1, 0.12, 1.0, 12);
+            // 左上臂 - 调整比例
+            const upperArmGeometry = new THREE.CylinderGeometry(0.1, 0.12, 0.7, 12); // 调整比例
             leftArm = new THREE.Mesh(upperArmGeometry, skinMaterial);
-            leftArm.position.set(0, -0.5, 0);
+            leftArm.position.set(0, -0.35, 0);
             leftArm.castShadow = true;
             leftShoulderJoint.add(leftArm);
             
-            // 左肘关节 - 确保连接
+            // 左肘关节
             const elbowJointGeometry = new THREE.SphereGeometry(0.1, 12, 8);
             const leftElbowJoint = new THREE.Mesh(elbowJointGeometry, metalMaterial);
-            leftElbowJoint.position.set(0, -0.6, 0); // 确保与上臂连接
+            leftElbowJoint.position.set(0, -0.45, 0);
             leftArm.add(leftElbowJoint);
             
-            // 左前臂 - 确保连接
-            const forearmGeometry = new THREE.CylinderGeometry(0.08, 0.1, 0.8, 12);
+            // 左前臂
+            const forearmGeometry = new THREE.CylinderGeometry(0.08, 0.1, 0.7, 12);
             const leftForearm = new THREE.Mesh(forearmGeometry, skinMaterial);
-            leftForearm.position.set(0, -0.5, 0); // 调整位置确保与肘关节连接
+            leftForearm.position.set(0, -0.45, 0);
+            leftForearm.castShadow = true;
             leftElbowJoint.add(leftForearm);
             
+            // 左手腕关节
+            const wristJointGeometry = new THREE.SphereGeometry(0.08, 12, 8);
+            const leftWristJoint = new THREE.Mesh(wristJointGeometry, metalMaterial);
+            leftWristJoint.position.set(0, -0.4, 0);
+            leftForearm.add(leftWristJoint);
+            
             // 左手
-            const handGeometry = new THREE.SphereGeometry(0.12, 12, 8);
+            const handGeometry = new THREE.SphereGeometry(0.1, 12, 8);
             const leftHand = new THREE.Mesh(handGeometry, skinMaterial);
-            leftHand.position.set(0, -0.5, 0);
+            leftHand.position.set(0, -0.2, 0);
             leftHand.scale.set(1, 1.2, 0.8);
-            leftForearm.add(leftHand);
+            //leftWristJoint.add(leftHand);
 
-            // 右上臂
+            // 添加左手手指 - 修正位置和角度
+            const fingerGeometry = new THREE.CylinderGeometry(0.015, 0.02, 0.15, 8);
+            const fingerMaterial = new THREE.MeshPhongMaterial({ color: 0xFFE4B5, shininess: 20 });
+            
+            // 拇指 - 修正位置和角度
+            const leftThumb = new THREE.Mesh(fingerGeometry, fingerMaterial);
+            leftThumb.position.set(-0.12, -0.2, 0.02); // 调整位置
+            leftThumb.rotation.z = Math.PI / 3; // 调整角度
+            leftHand.add(leftThumb);
+            
+            // 食指
+            const leftIndex = new THREE.Mesh(fingerGeometry, fingerMaterial);
+            leftIndex.position.set(0.05, -0.25, 0.08);
+            leftIndex.rotation.z = -Math.PI / 8; // 调整角度
+            leftHand.add(leftIndex);
+            
+            // 中指
+            const leftMiddle = new THREE.Mesh(fingerGeometry, fingerMaterial);
+            leftMiddle.position.set(0, -0.27, 0.1);
+            leftHand.add(leftMiddle);
+            
+            // 无名指
+            const leftRing = new THREE.Mesh(fingerGeometry, fingerMaterial);
+            leftRing.position.set(-0.05, -0.25, 0.08);
+            leftRing.rotation.z = Math.PI / 8; // 调整角度
+            leftHand.add(leftRing);
+            
+            // 小指
+            const leftPinky = new THREE.Mesh(fingerGeometry, fingerMaterial);
+            leftPinky.position.set(-0.1, -0.22, 0.06);
+            leftPinky.rotation.z = Math.PI / 4; // 调整角度
+            leftHand.add(leftPinky);
+
+            // 右上臂 - 调整比例
             rightArm = new THREE.Mesh(upperArmGeometry, skinMaterial);
-            rightArm.position.set(0, -0.5, 0);
+            rightArm.position.set(0, -0.35, 0);
             rightArm.castShadow = true;
             rightShoulderJoint.add(rightArm);
             
-            // 右肘关节 - 确保连接
+            // 右肘关节
             const rightElbowJoint = new THREE.Mesh(elbowJointGeometry, metalMaterial);
-            rightElbowJoint.position.set(0, -0.6, 0); // 确保与上臂连接
+            rightElbowJoint.position.set(0, -0.45, 0);
             rightArm.add(rightElbowJoint);
             
-            // 右前臂 - 确保连接
+            // 右前臂
             const rightForearm = new THREE.Mesh(forearmGeometry, skinMaterial);
-            rightForearm.position.set(0, -0.5, 0); // 调整位置确保与肘关节连接
+            rightForearm.position.set(0, -0.45, 0);
+            rightForearm.castShadow = true;
             rightElbowJoint.add(rightForearm);
+            
+            // 右手腕关节
+            const rightWristJoint = new THREE.Mesh(wristJointGeometry, metalMaterial);
+            rightWristJoint.position.set(0, -0.4, 0);
+            rightForearm.add(rightWristJoint);
             
             // 右手
             const rightHand = new THREE.Mesh(handGeometry, skinMaterial);
-            rightHand.position.set(0, -0.5, 0);
+            rightHand.position.set(0, -0.2, 0);
             rightHand.scale.set(1, 1.2, 0.8);
-            rightForearm.add(rightHand);
+            //rightWristJoint.add(rightHand);
+
+            // 添加右手手指 - 修正位置和角度
+            // 拇指
+            const rightThumb = new THREE.Mesh(fingerGeometry, fingerMaterial);
+            rightThumb.position.set(0.12, -0.2, 0.02); // 调整位置
+            rightThumb.rotation.z = -Math.PI / 3; // 调整角度
+            rightHand.add(rightThumb);
+            
+            // 食指
+            const rightIndex = new THREE.Mesh(fingerGeometry, fingerMaterial);
+            rightIndex.position.set(-0.05, -0.25, 0.08);
+            rightIndex.rotation.z = Math.PI / 8; // 调整角度
+            rightHand.add(rightIndex);
+            
+            // 中指
+            const rightMiddle = new THREE.Mesh(fingerGeometry, fingerMaterial);
+            rightMiddle.position.set(0, -0.27, 0.1);
+            rightHand.add(rightMiddle);
+            
+            // 无名指
+            const rightRing = new THREE.Mesh(fingerGeometry, fingerMaterial);
+            rightRing.position.set(0.05, -0.25, 0.08);
+            rightRing.rotation.z = -Math.PI / 8; // 调整角度
+            rightHand.add(rightRing);
+            
+            // 小指
+            const rightPinky = new THREE.Mesh(fingerGeometry, fingerMaterial);
+            rightPinky.position.set(0.1, -0.22, 0.06);
+            rightPinky.rotation.z = -Math.PI / 4; // 调整角度
+            rightHand.add(rightPinky);
         }
         
         function setupEventListeners() {
@@ -984,14 +1172,17 @@ let scene, camera, renderer, head, body, leftArm, rightArm, leftLeg, rightLeg;
                  spotLight2.color.setHSL(hue * 0.3 + 0.8, 0.5, 0.6);
              }
              
+             // 整体动画协调 - 新增功能
+             updateBodyAnimation(time);
+             
              // 更自然的身体摆动 - 模拟呼吸
-             body.rotation.z = Math.sin(time * 0.8) * 0.02;
-             body.position.y = 2.0 + Math.sin(time * 1.2) * 0.01;
+             if (typeof body !== 'undefined') {
+                 body.rotation.z = Math.sin(time * 0.8) * 0.02;
+             }
              
              // 胸部轻微的呼吸动作
              if (typeof upperTorso !== 'undefined') {
                  upperTorso.rotation.x = Math.sin(time * 1.5) * 0.01;
-                 upperTorso.position.y = 3.2 + Math.sin(time * 1.2) * 0.008;
              }
              
              // 头部轻微的生动摆动（当没有手动控制时）
@@ -1048,11 +1239,47 @@ let scene, camera, renderer, head, body, leftArm, rightArm, leftLeg, rightLeg;
                  // 身体组整体摆动
                  if (bodyGroup) {
                      bodyGroup.rotation.y = Math.sin(time * 0.8) * 0.02;
-                     bodyGroup.position.y = 2.0 + Math.sin(time * 1.2) * 0.02;
                  }
              }
              
              renderer.render(scene, camera);
+         }
+
+         // 新增：整体动画协调函数
+         function updateBodyAnimation(time) {
+             // 身体整体轻微摆动
+             if (bodyGroup) {
+                 bodyGroup.rotation.y = Math.sin(time * 0.5) * 0.01;
+             }
+             
+             // 协调的手臂摆动（当没有其他动画时）
+             if (leftArm && rightArm && !armAnimation.isAnimating && !isDanceMode) {
+                 // 更自然的手臂摆动
+                 leftArm.rotation.x = Math.sin(time * 0.7) * 0.05;
+                 rightArm.rotation.x = Math.sin(time * 0.7 + Math.PI) * 0.05;
+                 
+                 // 添加轻微的前后摆动
+                 leftArm.rotation.y = Math.cos(time * 0.5) * 0.02;
+                 rightArm.rotation.y = Math.cos(time * 0.5 + Math.PI) * 0.02;
+             }
+             
+             // 腿部轻微摆动
+             if (leftThigh && rightThigh) {
+                 leftThigh.rotation.x = Math.sin(time * 0.6) * 0.01;
+                 rightThigh.rotation.x = Math.sin(time * 0.6 + Math.PI) * 0.01;
+             }
+             
+             // 头部轻微摆动（当没有手动控制时）
+             if (head && !beatAnimation.isAnimating && document.getElementById('headYaw').value == 0) {
+                 head.rotation.y += Math.sin(time * 0.4) * 0.0008;
+                 head.rotation.x += Math.cos(time * 0.5) * 0.0003;
+             }
+             
+             // 呼吸效果
+             if (upperTorso) {
+                 const breathScale = 1 + Math.sin(time * 1.2) * 0.005;
+                 upperTorso.scale.y = breathScale;
+             }
          }
 
          return {
