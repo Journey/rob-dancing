@@ -105,7 +105,8 @@ class DanceChoreographer:
                 target_angle=mid_angle,
                 duration=transition_duration,
                 style=MovementStyle.FLUID,
-                intensity=(prev_move.intensity + next_move.intensity) / 2
+                intensity=(prev_move.intensity + next_move.intensity) / 2,
+                time=next_move.time - transition_duration
             )
             
             transitions.append(transition_move)

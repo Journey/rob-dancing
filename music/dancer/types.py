@@ -41,3 +41,4 @@ class DanceMove:
     duration: float
     style: MovementStyle
     intensity: float  # 0-1, 动作强度
+    time: float

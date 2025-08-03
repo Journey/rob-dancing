@@ -27,28 +27,32 @@ class FeatureToActionMapper:
                     target_angle=15 * intensity,
                     duration=60.0 / tempo,  # 基于速度的持续时间
                     style=MovementStyle.ENERGETIC,
-                    intensity=intensity
+                    intensity=intensity,
+                    time=beat_time
                 ),
                 DanceMove(
                     joint=JointType.HIP_RIGHT,
                     target_angle=-15 * intensity,
                     duration=60.0 / tempo,
                     style=MovementStyle.ENERGETIC,
-                    intensity=intensity
+                    intensity=intensity,
+                    time=beat_time
                 ),
                 DanceMove(
                     joint=JointType.KNEE_LEFT,
                     target_angle=30 * intensity,
                     duration=60.0 / tempo,
                     style=MovementStyle.ENERGETIC,
-                    intensity=intensity
+                    intensity=intensity,
+                    time=beat_time
                 ),
                 DanceMove(
                     joint=JointType.KNEE_RIGHT,
                     target_angle=30 * intensity,
                     duration=60.0 / tempo,
                     style=MovementStyle.ENERGETIC,
-                    intensity=intensity
+                    intensity=intensity,
+                    time=beat_time
                 )
             ])
         
@@ -92,14 +96,16 @@ class FeatureToActionMapper:
                     target_angle=45 * amplitude_factor,
                     duration=0.1,
                     style=MovementStyle.ENERGETIC,
-                    intensity=amplitude_factor
+                    intensity=amplitude_factor,
+                    time=time
                 ),
                 DanceMove(
                     joint=JointType.SHOULDER_RIGHT,
                     target_angle=-45 * amplitude_factor,
                     duration=0.1,
                     style=MovementStyle.ENERGETIC,
-                    intensity=amplitude_factor
+                    intensity=amplitude_factor,
+                    time=time
                 )
             ])
         
@@ -144,14 +150,16 @@ class FeatureToActionMapper:
                 target_angle=20 * (frequency / 1000),
                 duration=0.2,
                 style=MovementStyle.FLUID,
-                intensity=0.6
+                intensity=0.6,
+                time=time
             ),
             DanceMove(
                 joint=JointType.KNEE_LEFT,
                 target_angle=40 * (frequency / 1000),
                 duration=0.2,
                 style=MovementStyle.FLUID,
-                intensity=0.6
+                intensity=0.6,
+                time=time
             )
         ]
     
@@ -163,14 +171,16 @@ class FeatureToActionMapper:
                 target_angle=15 * (frequency / 4000),
                 duration=0.3,
                 style=MovementStyle.FLUID,
-                intensity=0.5
+                intensity=0.5,
+                time=time
             ),
             DanceMove(
                 joint=JointType.HIP_RIGHT,
                 target_angle=-15 * (frequency / 4000),
                 duration=0.3,
                 style=MovementStyle.FLUID,
-                intensity=0.5
+                intensity=0.5,
+                time=time
             )
         ]
     
@@ -182,14 +192,16 @@ class FeatureToActionMapper:
                 target_angle=30 * (frequency / 8000),
                 duration=0.15,
                 style=MovementStyle.ENERGETIC,
-                intensity=0.7
+                intensity=0.7,
+                time=time
             ),
             DanceMove(
                 joint=JointType.HEAD_YAW,
                 target_angle=20 * (frequency / 8000),
                 duration=0.15,
                 style=MovementStyle.ENERGETIC,
-                intensity=0.7
+                intensity=0.7,
+                time=time
             )
         ]
     
