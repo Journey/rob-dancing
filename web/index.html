@@ -5,6 +5,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>3D铁臂阿童木 - 可动机器人模型</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/fflate@0.7.4/umd/index.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/loaders/FBXLoader.js"></script>
     <script src="data/beats.js"></script>
     <link rel="stylesheet" href="css/style.css">
 </head>
@@ -34,6 +36,7 @@
             <div class="control-group">
                 <button onclick="resetHead()">重置头部</button>
                 <button onclick="randomMove()">随机摆动</button>
+                <button onclick="resetFBXModel()">重置FBX模型</button>
             </div>
             
             <div class="control-group">
@@ -47,6 +50,13 @@
                 <label>
                     <input type="checkbox" id="enableDanceMode" checked> 
                     启用舞蹈模式
+                </label>
+            </div>
+            
+            <div class="control-group">
+                <label>
+                    <input type="checkbox" id="showFBXModel" checked> 
+                    显示FBX模型
                 </label>
             </div>
         </div>
@@ -67,6 +77,7 @@
         
         <div id="info">
             <p>• 铁臂阿童木3D模型</p>
+            <p>• Uzi FBX模型支持</p>
             <p>• 鼠标拖拽旋转视角</p>
             <p>• 滚轮缩放</p>
             <p>• 播放音频观看节拍同步舞蹈</p>
@@ -76,7 +87,7 @@
 
     <script src="js/robtic.js"></script>
     <script>
-        const { init, togglePlayPause, stopAudio, updateTimeDisplay } = robtic();
+        const { init, togglePlayPause, stopAudio, updateTimeDisplay, resetFBXModel } = robtic();
         init()
     </script>
 </body>

@@ -1,4 +1,3 @@
-// 3D模型
 function robtic() {
         let scene, camera, renderer, head, body, leftArm, rightArm, leftLeg, rightLeg;
         let upperTorso, waist; // 身体部分变量
@@ -8,6 +7,10 @@ function robtic() {
         let mouseX = 0, mouseY = 0;
         let isMouseDown = false;
         let cameraAngleX = 0, cameraAngleY = 0;
+        
+        // FBX模型相关变量
+        let fbxModel = null;
+        let fbxLoader = null;
         
         // 舞蹈数据相关变量
         let danceData = null;
@@ -33,6 +36,167 @@ function robtic() {
             amplitude: 0.5, // 手臂摆动幅度
             isLeftArm: true // 当前是否为左臂摆动
         };
+        
+        // 创建安全的材质
+        function createSafeMaterial(originalMaterial) {
+            // 创建基础材质作为后备
+            const safeMaterial = new THREE.MeshPhongMaterial({
+                color: 0xCCCCCC,
+                shininess: 30,
+                specular: 0x222222
+            });
+            
+            // 如果原始材质有效，尝试复制其属性
+            if (originalMaterial) {
+                try {
+                    if (originalMaterial.color) {
+                        safeMaterial.color.copy(originalMaterial.color);
+                    }
+                    if (originalMaterial.map && originalMaterial.map.image) {
+                        safeMaterial.map = originalMaterial.map;
+                    }
+                } catch (error) {
+                    console.warn('材质复制失败，使用默认材质:', error);
+                }
+            }
+            
+            return safeMaterial;
+        }
+        
+        // FBX加载函数
+        function loadFBXModel(url, onLoad, onProgress, onError) {
+            if (!fbxLoader) {
+                fbxLoader = new THREE.FBXLoader();
+            }
+            
+            fbxLoader.load(
+                url,
+                function(object) {
+                    console.log('FBX模型加载成功:', object);
+                    
+                    // 调整模型大小和位置
+                    object.scale.set(0.01, 0.01, 0.01); // 缩小模型
+                    object.position.set(0, 0, 0); // 居中放置
+                    
+                    // 启用阴影并修复材质
+                    object.traverse(function(child) {
+                        if (child.isMesh) {
+                            child.castShadow = true;
+                            child.receiveShadow = true;
+                            
+                            // 修复材质问题
+                            if (child.material) {
+                                try {
+                                    // 检查材质是否有效
+                                    if (!child.material.color || 
+                                        (child.material.map && !child.material.map.image) ||
+                                        (child.material.normalMap && !child.material.normalMap.image) ||
+                                        (child.material.specularMap && !child.material.specularMap.image)) {
+                                        
+                                        // 使用安全材质替换有问题的材质
+                                        child.material = createSafeMaterial(child.material);
+                                    } else {
+                                        // 清理无效的纹理引用
+                                        if (child.material.map && !child.material.map.image) {
+                                            child.material.map = null;
+                                        }
+                                        if (child.material.normalMap && !child.material.normalMap.image) {
+                                            child.material.normalMap = null;
+                                        }
+                                        if (child.material.specularMap && !child.material.specularMap.image) {
+                                            child.material.specularMap = null;
+                                        }
+                                        
+                                        // 设置默认材质属性
+                                        child.material.shininess = 30;
+                                        child.material.specular = 0x222222;
+                                        child.material.needsUpdate = true;
+                                    }
+                                } catch (error) {
+                                    console.warn('材质处理失败，使用默认材质:', error);
+                                    child.material = createSafeMaterial(null);
+                                }
+                            }
+                        }
+                    });
+                    
+                    // 移除现有的FBX模型（如果存在）
+                    if (fbxModel) {
+                        scene.remove(fbxModel);
+                    }
+                    
+                    // 添加新模型到场景
+                    fbxModel = object;
+                    scene.add(fbxModel);
+                    
+                    // 设置初始可见性
+                    const fbxModelCheckbox = document.getElementById('showFBXModel');
+                    if (fbxModelCheckbox) {
+                        fbxModel.visible = fbxModelCheckbox.checked;
+                    }
+                    
+                    if (onLoad) onLoad(object);
+                },
+                function(progress) {
+                    console.log('FBX加载进度:', (progress.loaded / progress.total * 100) + '%');
+                    if (onProgress) onProgress(progress);
+                },
+                function(error) {
+                    console.error('FBX加载失败:', error);
+                    if (onError) onError(error);
+                }
+            );
+        }
+        
+        // 加载Uzi FBX模型
+        function loadUziModel() {
+            // 设置纹理加载管理器来处理缺失的纹理
+            const textureLoader = new THREE.TextureLoader();
+            textureLoader.crossOrigin = 'anonymous';
+            
+            loadFBXModel(
+                'statics/murder-drones-uzi-plushie/source/Uzi.fbx',
+                function(object) {
+                    console.log('Uzi模型加载完成');
+                    
+                    // 调整模型位置和大小
+                    object.scale.set(0.02, 0.02, 0.02); // 稍微放大一点
+                    object.position.set(0, 1, 0); // 调整位置到合适高度
+                    
+                    // 确保模型面向相机
+                    object.rotation.y = Math.PI;
+                    
+                    // 最终材质检查和修复
+                    object.traverse(function(child) {
+                        if (child.isMesh && child.material) {
+                            // 确保所有材质都是有效的
+                            if (!child.material.color) {
+                                child.material = createSafeMaterial(null);
+                            }
+                        }
+                    });
+                    
+                    // 可以在这里添加特定的动画或调整
+                },
+                function(progress) {
+                    console.log('加载进度:', Math.round(progress.loaded / progress.total * 100) + '%');
+                },
+                function(error) {
+                    console.error('加载失败:', error);
+                    // 如果FBX加载失败，确保自定义角色可见
+                    if (bodyGroup) {
+                        bodyGroup.visible = true;
+                    }
+                    // 隐藏FBX模型复选框
+                    const fbxModelCheckbox = document.getElementById('showFBXModel');
+                    if (fbxModelCheckbox) {
+                        fbxModelCheckbox.checked = false;
+                        fbxModelCheckbox.disabled = true;
+                    }
+                }
+            );
+        }
+
         function amplitude_data_producer() {
            let counter = 0;
            let val = Math.random();
@@ -189,6 +353,19 @@ function robtic() {
                 }
             });
             
+            // 加载FBX模型（带错误处理）
+            try {
+                //loadUziModel();
+            } catch (error) {
+                console.error('FBX加载初始化失败:', error);
+                // 禁用FBX功能
+                const fbxModelCheckbox = document.getElementById('showFBXModel');
+                if (fbxModelCheckbox) {
+                    fbxModelCheckbox.checked = false;
+                    fbxModelCheckbox.disabled = true;
+                }
+            }
+            
             // 添加事件监听器
             setupEventListeners();
             
@@ -200,6 +377,7 @@ function robtic() {
         async function loadDanceData() {
             try {
                 const response = await fetch('data/molihua_dance.json');
+                //const response = await fetch('data/sjg_dance.json');
                 danceData = await response.json();
                 console.log('舞蹈数据加载成功:', danceData);
                 return true;
@@ -239,7 +417,7 @@ function robtic() {
             while (currentDanceIndex < sequence.length) {
                 const move = sequence[currentDanceIndex];
                 const moveEndTime = move.time + move.duration;
-                
+                console.log(currentTime, moveEndTime);
                 if (currentTime <= moveEndTime) {
                     // 应用当前舞蹈动作
                     applyDanceMove(move, currentTime - move.time, move.duration);
@@ -257,60 +435,60 @@ function robtic() {
         
         // 应用舞蹈动作
         function applyDanceMove(move, elapsed, duration) {
-            if (!head || !leftArm || !rightArm || !leftLeg || !rightLeg || !leftThigh || !rightThigh) return;
+            //if (!head || !leftArm || !rightArm || !leftLeg || !rightLeg || !leftThigh || !rightThigh) return;
             
             const progress = Math.min(elapsed / duration, 1);
+            console.log(progress);
             const intensity = move.intensity || 0.5;
             
             // 增强动作幅度
-            const amplitudeMultiplier = 3.0; // 增加动作幅度
-            
+            const amplitudeMultiplier = 3.0; // 增加动作幅度xx
             // 根据关节类型应用动作
             switch (move.joint) {
                 case 'head_yaw':
-                    head.rotation.y = THREE.MathUtils.degToRad(move.target_angle * intensity * amplitudeMultiplier);
+                    head.rotation.y = THREE.MathUtils.degToRad(move.target_angle * progress * intensity * amplitudeMultiplier);
                     break;
                 case 'head_pitch':
-                    head.rotation.x = THREE.MathUtils.degToRad(move.target_angle * intensity * amplitudeMultiplier);
+                    head.rotation.x = THREE.MathUtils.degToRad(move.target_angle * progress * intensity * amplitudeMultiplier);
                     break;
                 case 'shoulder_left':
                     // 手臂摆动 - 前后摆动
-                    leftArm.rotation.x = THREE.MathUtils.degToRad(move.target_angle * intensity * amplitudeMultiplier);
+                    leftArm.rotation.x = THREE.MathUtils.degToRad(move.target_angle * progress * intensity * amplitudeMultiplier);
                     // 添加一些侧向摆动
-                    leftArm.rotation.y = THREE.MathUtils.degToRad(move.target_angle * 0.5 * intensity * amplitudeMultiplier);
+                    leftArm.rotation.y = THREE.MathUtils.degToRad(move.target_angle * 0.5 * progress * intensity * amplitudeMultiplier);
                     break;
                 case 'shoulder_right':
                     // 手臂摆动 - 前后摆动
-                    rightArm.rotation.x = THREE.MathUtils.degToRad(move.target_angle * intensity * amplitudeMultiplier);
+                    rightArm.rotation.x = THREE.MathUtils.degToRad(move.target_angle * progress * intensity * amplitudeMultiplier);
                     // 添加一些侧向摆动
-                    rightArm.rotation.y = THREE.MathUtils.degToRad(-move.target_angle * 0.5 * intensity * amplitudeMultiplier);
+                    rightArm.rotation.y = THREE.MathUtils.degToRad(-move.target_angle * 0.5 * progress * intensity * amplitudeMultiplier);
                     break;
                 case 'hip_left':
                     // 大腿摆动 - 前后摆动
-                    leftThigh.rotation.x = THREE.MathUtils.degToRad(move.target_angle * intensity * amplitudeMultiplier);
+                    leftThigh.rotation.x = THREE.MathUtils.degToRad(move.target_angle * progress * intensity * amplitudeMultiplier);
                     break;
                 case 'hip_right':
                     // 大腿摆动 - 前后摆动
-                    rightThigh.rotation.x = THREE.MathUtils.degToRad(move.target_angle * intensity * amplitudeMultiplier);
+                    rightThigh.rotation.x = THREE.MathUtils.degToRad(move.target_angle * progress * intensity * amplitudeMultiplier);
                     break;
                 case 'knee_left':
                     // 膝盖弯曲
-                    leftLeg.rotation.z = THREE.MathUtils.degToRad(move.target_angle * intensity * amplitudeMultiplier);
+                    leftLeg.rotation.z = THREE.MathUtils.degToRad(move.target_angle * progress * intensity * amplitudeMultiplier);
                     break;
                 case 'knee_right':
                     // 膝盖弯曲
-                    rightLeg.rotation.z = THREE.MathUtils.degToRad(move.target_angle * intensity * amplitudeMultiplier);
+                    rightLeg.rotation.z = THREE.MathUtils.degToRad(move.target_angle * progress * intensity * amplitudeMultiplier);
                     break;
                 case 'ankle_left':
                     // 脚踝动作
                     if (leftLeg.parent && leftLeg.parent.parent) {
-                        leftLeg.parent.parent.rotation.z = THREE.MathUtils.degToRad(move.target_angle * 0.8 * intensity * amplitudeMultiplier);
+                        leftLeg.parent.parent.rotation.z = THREE.MathUtils.degToRad(move.target_angle * 0.8 * progress * intensity * amplitudeMultiplier);
                     }
                     break;
                 case 'ankle_right':
                     // 脚踝动作
                     if (rightLeg.parent && rightLeg.parent.parent) {
-                        rightLeg.parent.parent.rotation.z = THREE.MathUtils.degToRad(move.target_angle * 0.8 * intensity * amplitudeMultiplier);
+                        rightLeg.parent.parent.rotation.z = THREE.MathUtils.degToRad(move.target_angle * 0.8 * progress * intensity * amplitudeMultiplier);
                     }
                     break;
             }
@@ -353,7 +531,7 @@ function robtic() {
             }
         }
         
-                 function stopAudio() {
+            function stopAudio() {
              audioPlayer.pause();
              audioPlayer.currentTime = 0;
              document.getElementById('playPauseBtn').textContent = '播放';
@@ -405,7 +583,7 @@ function robtic() {
                 const nextBeatTime = beatTimes[currentBeatIndex];
                 const timeDiff = Math.abs(currentTime - nextBeatTime);
                 
-                                 // 如果在节拍点附近（±0.05秒），触发摆动
+                // 如果在节拍点附近（±0.05秒），触发摆动
                  if (timeDiff <= 0.05 && !beatAnimation.isAnimating) {
                      triggerBeatAnimation();
                      triggerArmAnimation();
@@ -986,7 +1164,7 @@ function robtic() {
                 document.getElementById('rollValue').textContent = this.value + '°';
             });
             
-                         // 节拍同步开关
+            // 节拍同步开关
              document.getElementById('enableBeatSync').addEventListener('change', function() {
                  beatSyncEnabled = this.checked;
                  if (!beatSyncEnabled) {
@@ -1022,6 +1200,20 @@ function robtic() {
                     danceModeEnabled = this.checked;
                     if (!danceModeEnabled) {
                         stopDanceMode();
+                    }
+                });
+            }
+            
+            // FBX模型显示开关
+            const fbxModelCheckbox = document.getElementById('showFBXModel');
+            if (fbxModelCheckbox) {
+                fbxModelCheckbox.addEventListener('change', function() {
+                    if (fbxModel) {
+                        fbxModel.visible = this.checked;
+                    }
+                    // 切换自定义角色的可见性
+                    if (bodyGroup) {
+                        bodyGroup.visible = !this.checked;
                     }
                 });
             }
@@ -1102,7 +1294,7 @@ function robtic() {
             camera.lookAt(0, 3, 0);
         }
         
-                 function resetHead() {
+        function resetHead() {
              head.rotation.set(0, 0, 0);
              document.getElementById('headYaw').value = 0;
              document.getElementById('headPitch').value = 0;
@@ -1140,6 +1332,15 @@ function robtic() {
             document.getElementById('yawValue').textContent = Math.round(randomYaw) + '°';
             document.getElementById('pitchValue').textContent = Math.round(randomPitch) + '°';
             document.getElementById('rollValue').textContent = Math.round(randomRoll) + '°';
+        }
+        
+        // 重置FBX模型位置
+        function resetFBXModel() {
+            if (fbxModel) {
+                fbxModel.position.set(0, 1, 0);
+                fbxModel.rotation.set(0, Math.PI, 0);
+                fbxModel.scale.set(0.02, 0.02, 0.02);
+            }
         }
         
         function onWindowResize() {
@@ -1242,10 +1443,24 @@ function robtic() {
                  }
              }
              
-             renderer.render(scene, camera);
+             // FBX模型动画
+             if (fbxModel && fbxModel.visible) {
+                 // 轻微的旋转动画
+                 fbxModel.rotation.y = Math.sin(time * 0.5) * 0.1;
+                 
+                 // 轻微的上下摆动
+                 fbxModel.position.y = Math.sin(time * 0.8) * 0.05;
+             }
+             
+             // 安全渲染，防止WebGL错误
+             try {
+                 renderer.render(scene, camera);
+             } catch (error) {
+                 console.warn('渲染错误，跳过此帧:', error);
+             }
          }
 
-         // 新增：整体动画协调函数
+         // 整体动画协调函数
          function updateBodyAnimation(time) {
              // 身体整体轻微摆动
              if (bodyGroup) {
@@ -1288,5 +1503,6 @@ function robtic() {
             togglePlayPause,
             stopAudio,
             updateTimeDisplay,
+            resetFBXModel,
          }
 }
