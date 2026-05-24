@@ -1,12 +1,13 @@
 import numpy as np
-from typing import Dict
-from dataclasses import dataclass
+from typing import Dict, Tuple
+from dataclasses import dataclass, field
 from enum import Enum
+
 
 class JointType(Enum):
     """机器人关节类型"""
-    HEAD_YAW = "head_yaw"      # 头部左右转动
-    HEAD_PITCH = "head_pitch"   # 头部上下点头
+    HEAD_YAW = "head_yaw"
+    HEAD_PITCH = "head_pitch"
     SHOULDER_LEFT = "shoulder_left"
     SHOULDER_RIGHT = "shoulder_right"
     ELBOW_LEFT = "elbow_left"
@@ -18,26 +19,88 @@ class JointType(Enum):
     ANKLE_LEFT = "ankle_left"
     ANKLE_RIGHT = "ankle_right"
 
+
 class MovementStyle(Enum):
     """舞蹈风格"""
-    ROBOTIC = "robotic"        # 机械风格
-    FLUID = "fluid"            # 流畅风格
-    ENERGETIC = "energetic"     # 活力风格
-    CALM = "calm"              # 平静风格
+    ROBOTIC = "robotic"
+    FLUID = "fluid"
+    ENERGETIC = "energetic"
+    CALM = "calm"
+
+
+# ---------------------------------------------------------------------------
+# Joint limits: (min_deg, max_deg)
+# Chosen to be safe and achievable for a humanoid robot.
+# ---------------------------------------------------------------------------
+JOINT_LIMITS: Dict[str, Tuple[float, float]] = {
+    "head_yaw":       (-45.0,  45.0),
+    "head_pitch":     (-30.0,  30.0),
+    "shoulder_left":  (-90.0,  90.0),   # negative = arm raised forward/up
+    "shoulder_right": (-90.0,  90.0),
+    "elbow_left":     (  0.0, 135.0),   # 0 = straight, positive = bend
+    "elbow_right":    (  0.0, 135.0),
+    "hip_left":       (-30.0,  30.0),   # positive = lean left
+    "hip_right":      (-30.0,  30.0),   # positive = lean right
+    "knee_left":      (  0.0,  90.0),   # positive = bend backward
+    "knee_right":     (  0.0,  90.0),
+    "ankle_left":     (-20.0,  20.0),
+    "ankle_right":    (-20.0,  20.0),
+}
+
+
+@dataclass
+class Pose:
+    """全身关节姿态 — 所有关节角度同时定义（单位：度）
+
+    这是编排的核心数据类型。每个 Keyframe 包含一个 Pose，
+    描述机器人在该时刻所有关节的目标角度。
+    """
+    head_yaw:       float = 0.0
+    head_pitch:     float = 0.0
+    shoulder_left:  float = 0.0   # 负值 = 手臂抬起/前伸
+    shoulder_right: float = 0.0
+    elbow_left:     float = 0.0   # 正值 = 肘弯曲
+    elbow_right:    float = 0.0
+    hip_left:       float = 0.0   # 正值 = 身体向左倾
+    hip_right:      float = 0.0   # 正值 = 身体向右倾
+    knee_left:      float = 0.0   # 正值 = 膝盖弯曲
+    knee_right:     float = 0.0
+    ankle_left:     float = 0.0
+    ankle_right:    float = 0.0
+
+
+@dataclass
+class Keyframe:
+    """时间轴上的一个关键帧
+
+    time:        该帧的绝对时间（秒）
+    pose:        目标姿态
+    transition:  到达该姿态所用的过渡时长（秒）
+    gesture_name: 所使用的动作原语名称（调试/可视化用）
+    """
+    time:         float
+    pose:         Pose
+    transition:   float = 0.3
+    gesture_name: str = ""
+
+
+# ---------------------------------------------------------------------------
+# Backward-compatible legacy types (kept for dance_executor interface)
+# ---------------------------------------------------------------------------
 
 @dataclass
 class JointLimits:
-    """关节限制"""
     min_angle: float
     max_angle: float
     max_velocity: float
     max_acceleration: float
 
+
 @dataclass
 class DanceMove:
-    """舞蹈动作"""
+    """Legacy single-joint move — kept for DanceExecutor compatibility."""
     joint: JointType
     target_angle: float
     duration: float
     style: MovementStyle
-    intensity: float  # 0-1, 动作强度
+    intensity: float

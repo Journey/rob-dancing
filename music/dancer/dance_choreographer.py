@@ -1,197 +1,200 @@
-from typing import Dict, List
-from .feature_to_action import FeatureToActionMapper
-from .types import DanceMove, JointType, MovementStyle
+"""Dance Choreography Engine — Beat-driven keyframe generation.
+
+Algorithm overview
+------------------
+1. Use beat timestamps as anchor points on the timeline.
+2. For each beat, determine its position within the bar (0–3).
+3. Look up local audio energy (RMS) and timbral character (spectral
+   centroid) from the nearest analysis frame.
+4. Select and blend gestures based on beat position + energy level.
+5. Emit one Keyframe per beat.  All joints are defined simultaneously,
+   so the robot receives a coherent whole-body pose at each beat.
+
+Mapping rules
+-------------
+  Beat in bar 0 (downbeat)   → side_step_left  + arm_swing_right
+  Beat in bar 1              → side_step_right + arm_swing_left
+  Beat in bar 2 (back-beat)  → side_step_left  + arm_swing_right + accent
+  Beat in bar 3              → side_step_right + arm_swing_left  + accent
+  Head bobs on every beat.
+  High-energy beats add arm raises or celebrate.
+  Low-energy beats use low_energy overlay.
+  Every 8 beats a body-lean is added for melodic phrasing.
+"""
+
+from typing import Dict, List, Any
 import numpy as np
 
-class DanceChoreographer:
+from . import gesture_library as G
+from .types import Keyframe, JOINT_LIMITS
 
-    """舞蹈编排器"""
-    
-    def __init__(self, robot_config: Dict):
-        self.robot_config = robot_config
-        self.mapper = FeatureToActionMapper()
-        self.joint_limits = self._initialize_joint_limits()
-        self.current_pose = self._initialize_pose()
-        
-    def choreograph_dance(self, audio_features: Dict) -> List[DanceMove]:
-        """编排完整舞蹈"""
-        dance_sequence = []
-        
-        # 1. 节拍驱动的核心律动
-        beat_moves = self.mapper.map_beat_to_core_movement(
-            audio_features['beats_time'],
-            audio_features['tempo']
-        )
-        dance_sequence.extend(beat_moves)
-        
-        # 2. 频率驱动的空间动作
-        freq_moves = self.mapper.map_frequency_to_spatial_movement(
-            audio_features['spectral_centroid'],
-            np.arange(len(audio_features['spectral_centroid'])) * 0.1
-        )
-        dance_sequence.extend(freq_moves)
-        
-        # 3. 音量驱动的动作幅度
-        volume_moves = self.mapper.map_volume_to_amplitude(
-            audio_features['rms'],
-            np.arange(len(audio_features['rms'])) * 0.1
-        )
-        dance_sequence.extend(volume_moves)
-        
-        # 4. 音色驱动的动作风格
-        timbre_moves = self.mapper.map_timbre_to_style(
-            audio_features['chroma'],
-            audio_features['spectral_contrast']
-        )
-        dance_sequence.extend(timbre_moves)
-        
-        # 5. 优化舞蹈序列
-        optimized_sequence = self._optimize_dance_sequence(dance_sequence)
-        
-        return optimized_sequence
-    
-    def _optimize_dance_sequence(self, moves: List[DanceMove]) -> List[DanceMove]:
-        """优化舞蹈序列"""
-        optimized_moves = []
-        
-        # 按时间排序
-        moves.sort(key=lambda x: getattr(x, 'time', 0))
-        
-        for i, move in enumerate(moves):
-            # 检查关节限制
-            if self._check_joint_limits(move):
-                # 添加平滑过渡
-                if i > 0:
-                    transition_moves = self._create_transition(
-                        optimized_moves[-1], move
-                    )
-                    optimized_moves.extend(transition_moves)
-                
-                optimized_moves.append(move)
-        
-        return optimized_moves
-    
-    def _check_joint_limits(self, move: DanceMove) -> bool:
-        """检查关节限制"""
-        limits = self.joint_limits[move.joint]
-        
-        # 检查角度限制
-        if not (limits.min_angle <= move.target_angle <= limits.max_angle):
-            return False
-        
-        # 检查速度限制
-        current_angle = self.current_pose[move.joint]
-        velocity = abs(move.target_angle - current_angle) / move.duration
-        
-        if velocity > limits.max_velocity:
-            return False
-        
-        return True
-    
-    def _create_transition(self, prev_move: DanceMove, 
-                          next_move: DanceMove) -> List[DanceMove]:
-        """创建动作间的平滑过渡"""
-        transitions = []
-        
-        # 如果两个动作涉及同一关节，创建过渡
-        if prev_move.joint == next_move.joint:
-            transition_duration = 0.1  # 100ms过渡时间
-            
-            # 计算中间角度
-            mid_angle = (prev_move.target_angle + next_move.target_angle) / 2
-            
-            transition_move = DanceMove(
-                joint=prev_move.joint,
-                target_angle=mid_angle,
-                duration=transition_duration,
-                style=MovementStyle.FLUID,
-                intensity=(prev_move.intensity + next_move.intensity) / 2
-            )
-            
-            transitions.append(transition_move)
-        
-        return transitions
-    
-    def _ensure_balance(self, moves: List[DanceMove]) -> List[DanceMove]:
-        """确保动作平衡性"""
-        balanced_moves = []
-        
-        for move in moves:
-            # 检查是否需要平衡动作
-            if self._needs_balance(move):
-                balance_move = self._create_balance_move(move)
-                balanced_moves.append(balance_move)
-            
-            balanced_moves.append(move)
-        
-        return balanced_moves
-    
-    def _needs_balance(self, move: DanceMove) -> bool:
-        """判断是否需要平衡动作"""
-        # 单侧动作需要平衡
-        unilateral_joints = [
-            JointType.SHOULDER_LEFT, JointType.SHOULDER_RIGHT,
-            JointType.HIP_LEFT, JointType.HIP_RIGHT,
-            JointType.KNEE_LEFT, JointType.KNEE_RIGHT
-        ]
-        
-        return move.joint in unilateral_joints
-    
-    def _create_balance_move(self, original_move: DanceMove) -> DanceMove:
-        """创建平衡动作"""
-        # 找到对应的对称关节
-        balance_joint_map = {
-            JointType.SHOULDER_LEFT: JointType.SHOULDER_RIGHT,
-            JointType.SHOULDER_RIGHT: JointType.SHOULDER_LEFT,
-            JointType.HIP_LEFT: JointType.HIP_RIGHT,
-            JointType.HIP_RIGHT: JointType.HIP_LEFT,
-            JointType.KNEE_LEFT: JointType.KNEE_RIGHT,
-            JointType.KNEE_RIGHT: JointType.KNEE_LEFT
-        }
-        
-        balance_joint = balance_joint_map.get(original_move.joint)
-        if balance_joint:
-            return DanceMove(
-                joint=balance_joint,
-                target_angle=-original_move.target_angle * 0.5,  # 对称但幅度较小
-                duration=original_move.duration,
-                style=original_move.style,
-                intensity=original_move.intensity * 0.7
-            )
-        
-        return None
-    
-    def _initialize_joint_limits(self) -> Dict[JointType, 'JointLimits']:
-        """初始化关节限制"""
-        from .types import JointLimits
-        
-        joint_limits = {}
-        config_limits = self.robot_config.get('joint_limits', {})
-        
-        for joint_type in JointType:
-            joint_name = joint_type.value
-            if joint_name in config_limits:
-                limits = config_limits[joint_name]
-                joint_limits[joint_type] = JointLimits(
-                    min_angle=limits.get('min', -90),
-                    max_angle=limits.get('max', 90),
-                    max_velocity=limits.get('max_velocity', 180),  # 度/秒
-                    max_acceleration=limits.get('max_acceleration', 360)  # 度/秒²
-                )
+
+class DanceChoreographer:
+    """Converts audio features into a time-sorted List[Keyframe]."""
+
+    def __init__(self, robot_config: Dict = None):
+        self.robot_config = robot_config or {}
+
+    # ------------------------------------------------------------------
+    # Public API
+    # ------------------------------------------------------------------
+
+    def choreograph_dance(self, audio_features: Dict[str, Any]) -> List[Keyframe]:
+        """Generate a full dance from extracted audio features.
+
+        Required keys in audio_features:
+            beats_time   – np.ndarray of beat timestamps (seconds)
+            tempo        – float BPM
+            rms          – np.ndarray of RMS energy per frame
+            spectral_centroid – np.ndarray of centroid Hz per frame
+            sr           – int sample rate (default 22050)
+            hop_length   – int (default 512)
+            duration     – float total duration seconds
+        """
+        self._validate_features(audio_features)
+
+        beat_times  = np.asarray(audio_features["beats_time"], dtype=float)
+        tempo       = float(audio_features["tempo"])
+        rms         = np.asarray(audio_features["rms"],               dtype=float)
+        centroid    = np.asarray(audio_features["spectral_centroid"],  dtype=float)
+        sr          = int(audio_features.get("sr",         22050))
+        hop_length  = int(audio_features.get("hop_length", 512))
+        duration    = float(audio_features.get("duration", float(beat_times[-1]) + 1.0))
+
+        beat_interval = 60.0 / tempo
+        # transition occupies 55% of beat interval, capped at 380 ms
+        transition = min(beat_interval * 0.55, 0.38)
+
+        # Normalise RMS to 0–1 range
+        rms_max = float(np.max(rms)) + 1e-8
+        rms_norm = rms / rms_max
+
+        # Per-beat feature lookup (nearest-frame)
+        beat_rms      = self._lookup_frames(beat_times, rms_norm,  sr, hop_length)
+        beat_centroid = self._lookup_frames(beat_times, centroid,   sr, hop_length)
+
+        # Energy thresholds (percentile-based → adapts to any song)
+        thresh_high = float(np.percentile(beat_rms, 75))
+        thresh_low  = float(np.percentile(beat_rms, 30))
+        cent_median = float(np.median(beat_centroid))
+
+        keyframes: List[Keyframe] = []
+
+        # ── home pose at t=0 ──────────────────────────────────────────
+        keyframes.append(Keyframe(
+            time=0.0, pose=G.home(), transition=0.5, gesture_name="home"
+        ))
+
+        for i, beat_time in enumerate(beat_times):
+            beat_in_bar = i % 4
+            half_beat   = i % 2
+            phrase_beat = i % 8   # 8-beat phrase position
+            energy      = float(beat_rms[i])
+            cent        = float(beat_centroid[i])
+
+            # Scaled intensity 0.4–1.0 so even quiet passages have motion
+            intensity = float(np.clip(energy * 1.3 + 0.35, 0.4, 1.0))
+
+            # ── Step 1: base lower-body step (alternates every beat) ──
+            if half_beat == 0:
+                base = G.side_step_left(intensity)
+                base_name = "side_step_left"
             else:
-                # 默认限制
-                joint_limits[joint_type] = JointLimits(
-                    min_angle=-90,
-                    max_angle=90,
-                    max_velocity=180,
-                    max_acceleration=360
-                )
-        
-        return joint_limits
-    
-    def _initialize_pose(self) -> Dict[JointType, float]:
-        """初始化机器人姿态"""
-        pose = {}
-        for joint_type in JointType:
-            pose[joint_type] = 0.0  # 初始角度为0
-        return pose
+                base = G.side_step_right(intensity)
+                base_name = "side_step_right"
+
+            # ── Step 2: head bob (every beat) ─────────────────────────
+            bob = G.head_bob(intensity * 0.65)
+            base = G.blend_poses(base, bob, 1.0)
+
+            # ── Step 3: alternating arm swing (every 2 beats) ─────────
+            if half_beat == 0:
+                arm = G.arm_swing_right(intensity * 0.85)
+            else:
+                arm = G.arm_swing_left(intensity * 0.85)
+            base = G.blend_poses(base, arm, 1.0)
+
+            # ── Step 4: accent on beats 2 & 3 of bar ─────────────────
+            accent_name = base_name
+            if beat_in_bar in (2, 3):
+                if cent >= cent_median:
+                    # High frequency content → upper-body accent
+                    accent = (G.arm_raise_left(intensity * 0.72)
+                              if beat_in_bar == 2
+                              else G.arm_raise_right(intensity * 0.72))
+                    base = G.blend_poses(base, accent, 0.75)
+                    accent_name = "arm_raise"
+                else:
+                    # Low frequency content → lower-body punch
+                    accent = G.knee_pump(intensity * 0.75)
+                    base = G.blend_poses(base, accent, 0.65)
+                    accent_name = "knee_pump"
+
+            # ── Step 5: energy-level overlay ──────────────────────────
+            if energy >= thresh_high:
+                if beat_in_bar == 0:
+                    climax = G.celebrate(intensity * 0.45)
+                    base = G.blend_poses(base, climax, 0.42)
+                    accent_name = "celebrate"
+                elif beat_in_bar == 2:
+                    # Alternate wave on high-energy back-beats
+                    wave = (G.robot_wave_right(intensity * 0.6)
+                            if (i // 4) % 2 == 0
+                            else G.robot_wave_left(intensity * 0.6))
+                    base = G.blend_poses(base, wave, 0.45)
+                    accent_name = "robot_wave"
+            elif energy <= thresh_low:
+                low = G.low_energy(0.55)
+                base = G.blend_poses(base, low, 0.50)
+                if accent_name.startswith("side_step"):
+                    accent_name = "low_energy"
+
+            # ── Step 6: 8-beat phrase lean for musical phrasing ───────
+            if phrase_beat == 0:
+                lean = G.body_lean_left(intensity * 0.35)
+                base = G.blend_poses(base, lean, 0.50)
+            elif phrase_beat == 4:
+                lean = G.body_lean_right(intensity * 0.35)
+                base = G.blend_poses(base, lean, 0.50)
+
+            keyframes.append(Keyframe(
+                time=float(beat_time),
+                pose=base,
+                transition=transition,
+                gesture_name=accent_name,
+            ))
+
+        # ── return to home at end ─────────────────────────────────────
+        keyframes.append(Keyframe(
+            time=duration, pose=G.home(), transition=1.0, gesture_name="home"
+        ))
+
+        return sorted(keyframes, key=lambda k: k.time)
+
+    # ------------------------------------------------------------------
+    # Private helpers
+    # ------------------------------------------------------------------
+
+    @staticmethod
+    def _lookup_frames(
+        times: np.ndarray,
+        feature: np.ndarray,
+        sr: int,
+        hop_length: int,
+    ) -> np.ndarray:
+        """Return feature values at the frames nearest to each timestamp."""
+        frames = np.round(times * sr / hop_length).astype(int)
+        frames = np.clip(frames, 0, len(feature) - 1)
+        return feature[frames]
+
+    @staticmethod
+    def _validate_features(features: Dict[str, Any]) -> None:
+        required = {"beats_time", "tempo", "rms", "spectral_centroid"}
+        missing = required - features.keys()
+        if missing:
+            raise ValueError(
+                f"audio_features is missing required keys: {missing}. "
+                "Run SpectrumAnalyzer.extract_spectral_features() first."
+            )
+        if len(features["beats_time"]) == 0:
+            raise ValueError("beats_time array is empty — no beats detected in audio.")

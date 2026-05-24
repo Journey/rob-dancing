@@ -158,7 +158,12 @@ class SpectrumAnalyzer:
         features['beats_frames'] = beats_frames  # Frame indices (original output)
         features['beats_time'] = beats_time      # Time stamps in seconds
         features['beats'] = beats_time           # Default to time stamps for backward compatibility
-        
+
+        # Analysis metadata — needed by DanceChoreographer for frame lookups
+        features['sr'] = self.sr
+        features['hop_length'] = 512             # librosa default used throughout
+        features['duration'] = len(self.audio_data) / self.sr
+
         return features
     
     def plot_spectrogram(self, spec_type: str = 'magnitude', title: Optional[str] = None, 
