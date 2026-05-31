@@ -113,3 +113,35 @@ button.playing {
 #beat-indicator.active {
     opacity: 1;
 }
+
+#track-selector {
+    display: flex;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.track-btn {
+    flex: 1;
+    background: #0a1a2a;
+    color: #6699AA;
+    border: 1px solid #1a3a4a;
+    padding: 7px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 13px;
+    margin: 0;
+    transition: background 0.15s, color 0.15s, border-color 0.15s;
+}
+
+.track-btn:hover {
+    background: #0d2233;
+    color: #88BBCC;
+    border-color: #2a5a6a;
+}
+
+.track-btn.active {
+    background: #003344;
+    color: #00DDFF;
+    border-color: #0099BB;
+    box-shadow: 0 0 6px rgba(0, 200, 255, 0.35);
+}

@@ -46,8 +46,11 @@
         
         <div id="audio-controls">
             <h3>音频控制</h3>
-            <!-- <audio id="audioPlayer" src="statics/molihua.mp4" preload="metadata"></audio> -->
             <audio id="audioPlayer" src="statics/shuangjiegun.mp3" preload="metadata"></audio>
+            <div id="track-selector">
+                <button id="btn-shuangjiegun" class="track-btn active" onclick="selectTrack('shuangjiegun')">⚡ 双节棍</button>
+                <button id="btn-molihua" class="track-btn" onclick="selectTrack('molihua')">🌸 茉莉花</button>
+            </div>
             <div>
                 <button id="playPauseBtn" onclick="togglePlayPause()">播放</button>
                 <button onclick="stopAudio()">停止</button>
@@ -68,10 +71,23 @@
         </div>
     </div>
 
-    <script src="js/robtic.js"></script>
+    <script src="js/robtic.js?v=2"></script>
     <script>
-        const { init, togglePlayPause, stopAudio, updateTimeDisplay } = robtic();
-        init()
+        const { init, togglePlayPause, stopAudio, updateTimeDisplay, switchTrack } = robtic();
+        init();
+
+        const TRACKS = {
+            shuangjiegun: { audio: 'statics/shuangjiegun.mp3', dance: 'data/shuangjiegun_dance.json' },
+            molihua:      { audio: 'statics/molihua.mp4',      dance: 'data/molihua_dance.json' },
+        };
+
+        function selectTrack(name) {
+            const t = TRACKS[name];
+            if (!t) return;
+            switchTrack(t.audio, t.dance);
+            document.querySelectorAll('.track-btn').forEach(b => b.classList.remove('active'));
+            document.getElementById('btn-' + name).classList.add('active');
+        }
     </script>
 </body>
 </html>

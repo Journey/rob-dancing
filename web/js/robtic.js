@@ -318,13 +318,13 @@ function robtic() {
     }
 
     function loadDanceData() {
-        fetch('data/molihua_dance.json')
+        fetch('data/shuangjiegun_dance.json')
             .then(r => r.json())
             .then(data => {
                 danceData = data;
                 console.log('[dance] Loaded: ' + data.keyframes.length + ' keyframes, tempo=' + data.tempo.toFixed(1) + ' BPM, duration=' + data.duration.toFixed(1) + 's');
             })
-            .catch(() => { console.warn('[dance] molihua_dance.json not found; run make dance AUDIO=... first.'); });
+            .catch(() => { console.warn('[dance] shuangjiegun_dance.json not found; run make dance AUDIO=... first.'); });
     }
 
     function easeInOut(t) {
@@ -575,5 +575,21 @@ function robtic() {
         renderer.render(scene, camera);
     }
 
-    return { init, togglePlayPause, stopAudio, updateTimeDisplay };
+    function switchTrack(audioSrc, danceSrc) {
+        stopAudio();
+        audioPlayer.src = audioSrc;
+        audioPlayer.load();
+        danceData = null;
+        lastAppliedPoseTime = -1;
+        currentBeatIndex = 0;
+        fetch(danceSrc)
+            .then(r => r.json())
+            .then(data => {
+                danceData = data;
+                console.log('[dance] Switched to ' + danceSrc + ': ' + data.keyframes.length + ' keyframes, ' + data.tempo.toFixed(1) + ' BPM');
+            })
+            .catch(() => console.warn('[dance] Failed to load: ' + danceSrc));
+    }
+
+    return { init, togglePlayPause, stopAudio, updateTimeDisplay, switchTrack };
 }
