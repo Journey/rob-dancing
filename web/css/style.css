@@ -1,7 +1,7 @@
 body {
     margin: 0;
     padding: 0;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    background: linear-gradient(135deg, #020408 0%, #050510 100%);
     font-family: Arial, sans-serif;
     overflow: hidden;
 }
@@ -38,7 +38,7 @@ input[type="range"] {
 }
 
 button {
-    background: #4CAF50;
+    background: #006699;
     color: white;
     border: none;
     padding: 8px 16px;
@@ -48,11 +48,11 @@ button {
 }
 
 button:hover {
-    background: #45a049;
+    background: #0088BB;
 }
 
 button.playing {
-    background: #ff6b6b;
+    background: #CC2255;
 }
 
 #info {
@@ -90,7 +90,7 @@ button.playing {
 
 #progress {
     height: 100%;
-    background: #4CAF50;
+    background: #00AADD;
     border-radius: 2px;
     width: 0%;
     transition: width 0.1s;
@@ -103,10 +103,11 @@ button.playing {
     transform: translateY(-50%);
     width: 20px;
     height: 20px;
-    background: #ff6b6b;
+    background: #00FFFF;
     border-radius: 50%;
     opacity: 0;
     transition: opacity 0.1s;
+    box-shadow: 0 0 8px #00FFFF;
 }
 
 #beat-indicator.active {

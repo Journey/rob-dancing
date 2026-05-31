@@ -2,27 +2,37 @@
 
 Algorithm overview
 ------------------
-1. Use beat timestamps as anchor points on the timeline.
-2. For each beat, determine its position within the bar (0–3).
-3. Look up local audio energy (RMS) and timbral character (spectral
-   centroid) from the nearest analysis frame.
-4. Select and blend gestures based on beat position + energy level.
-5. Emit one Keyframe per beat.  All joints are defined simultaneously,
-   so the robot receives a coherent whole-body pose at each beat.
+Musical structure is organised in nested time layers:
 
-Mapping rules
--------------
-  Beat in bar 0 (downbeat)   → side_step_left  + arm_swing_right
-  Beat in bar 1              → side_step_right + arm_swing_left
-  Beat in bar 2 (back-beat)  → side_step_left  + arm_swing_right + accent
-  Beat in bar 3              → side_step_right + arm_swing_left  + accent
-  Head bobs on every beat.
-  High-energy beats add arm raises or celebrate.
-  Low-energy beats use low_energy overlay.
-  Every 8 beats a body-lean is added for melodic phrasing.
+  Beat level (beat_in_bar = i % 4):
+    - Downbeat (0):  full-body power gesture — lower body + arms together
+    - Back-beat (2): upper-body accent — arm raise or shoulder shimmy
+    - Weak beats (1, 3): ankle bounce + light fill — micro-rhythm continuity
+
+  Phrase level (phrase_beat = i % 8):
+    - Beat 0: phrase entrance — body lean (left) + possible cross_step
+    - Beat 4: phrase mid-pivot — body lean (right) + direction reversal
+
+  Section level (section_beat = i % 16):
+    - Beat 0: section climax — celebrate or wave_hands_up
+    - Beat 8: section mid — arm_raise_both or shoulder_shimmy
+
+Spectral band mapping:
+    - Low centroid  (bass-heavy)   → hip_pop, knee_pump, running_man
+    - High centroid (treble-heavy) → point, arm_raise, robot_wave
+    - Mid centroid                 → shoulder_shimmy, cross_step, body_lean
+
+Anti-repetition: tracks last 3 gesture names; if the same gesture fills
+two consecutive slots a break-gesture is blended in.
+
+Adaptive transition speed:
+    - High energy  → fast snap  (beat_interval × 0.22)
+    - Low energy   → slow flow  (beat_interval × 0.65)
+    - Normal       → balanced   (beat_interval × 0.42)
 """
 
-from typing import Dict, List, Any
+from collections import deque
+from typing import Deque, Dict, List, Any
 import numpy as np
 
 from . import gesture_library as G
@@ -43,42 +53,41 @@ class DanceChoreographer:
         """Generate a full dance from extracted audio features.
 
         Required keys in audio_features:
-            beats_time   – np.ndarray of beat timestamps (seconds)
-            tempo        – float BPM
-            rms          – np.ndarray of RMS energy per frame
+            beats_time        – np.ndarray of beat timestamps (seconds)
+            tempo             – float BPM
+            rms               – np.ndarray of RMS energy per frame
             spectral_centroid – np.ndarray of centroid Hz per frame
-            sr           – int sample rate (default 22050)
-            hop_length   – int (default 512)
-            duration     – float total duration seconds
+            sr                – int sample rate (default 22050)
+            hop_length        – int (default 512)
+            duration          – float total duration seconds
         """
         self._validate_features(audio_features)
 
-        beat_times  = np.asarray(audio_features["beats_time"], dtype=float)
-        tempo       = float(audio_features["tempo"])
-        rms         = np.asarray(audio_features["rms"],               dtype=float)
-        centroid    = np.asarray(audio_features["spectral_centroid"],  dtype=float)
-        sr          = int(audio_features.get("sr",         22050))
-        hop_length  = int(audio_features.get("hop_length", 512))
-        duration    = float(audio_features.get("duration", float(beat_times[-1]) + 1.0))
+        beat_times = np.asarray(audio_features["beats_time"], dtype=float)
+        tempo      = float(audio_features["tempo"])
+        rms        = np.asarray(audio_features["rms"],              dtype=float)
+        centroid   = np.asarray(audio_features["spectral_centroid"], dtype=float)
+        sr         = int(audio_features.get("sr",         22050))
+        hop_length = int(audio_features.get("hop_length", 512))
+        duration   = float(audio_features.get("duration", float(beat_times[-1]) + 1.0))
 
         beat_interval = 60.0 / tempo
-        # transition occupies 55% of beat interval, capped at 380 ms
-        transition = min(beat_interval * 0.55, 0.38)
 
-        # Normalise RMS to 0–1 range
-        rms_max = float(np.max(rms)) + 1e-8
-        rms_norm = rms / rms_max
+        # Normalise RMS to 0–1
+        rms_norm = rms / (float(np.max(rms)) + 1e-8)
 
-        # Per-beat feature lookup (nearest-frame)
+        # Per-beat feature lookup (nearest analysis frame)
         beat_rms      = self._lookup_frames(beat_times, rms_norm,  sr, hop_length)
         beat_centroid = self._lookup_frames(beat_times, centroid,   sr, hop_length)
 
-        # Energy thresholds (percentile-based → adapts to any song)
+        # Adaptive thresholds — percentile-based so they work for any song
         thresh_high = float(np.percentile(beat_rms, 75))
         thresh_low  = float(np.percentile(beat_rms, 30))
-        cent_median = float(np.median(beat_centroid))
+        cent_p33    = float(np.percentile(beat_centroid, 33))
+        cent_p66    = float(np.percentile(beat_centroid, 66))
 
         keyframes: List[Keyframe] = []
+        last_gestures: Deque[str] = deque(maxlen=3)
 
         # ── home pose at t=0 ──────────────────────────────────────────
         keyframes.append(Keyframe(
@@ -86,82 +95,163 @@ class DanceChoreographer:
         ))
 
         for i, beat_time in enumerate(beat_times):
-            beat_in_bar = i % 4
-            half_beat   = i % 2
-            phrase_beat = i % 8   # 8-beat phrase position
-            energy      = float(beat_rms[i])
-            cent        = float(beat_centroid[i])
+            beat_in_bar  = i % 4
+            half_beat    = i % 2
+            phrase_beat  = i % 8
+            section_beat = i % 16
+            bar_num      = i // 4
+            energy       = float(beat_rms[i])
+            cent         = float(beat_centroid[i])
 
-            # Scaled intensity 0.4–1.0 so even quiet passages have motion
+            # Intensity 0.4–1.0 so even quiet passages have visible motion
             intensity = float(np.clip(energy * 1.3 + 0.35, 0.4, 1.0))
 
-            # ── Step 1: base lower-body step (alternates every beat) ──
-            if half_beat == 0:
-                base = G.side_step_left(intensity)
-                base_name = "side_step_left"
+            # Adaptive transition time
+            if intensity > 0.75:
+                transition = min(beat_interval * 0.22, 0.18)   # fast snap
+            elif intensity < 0.45:
+                transition = min(beat_interval * 0.65, 0.45)   # slow flow
             else:
-                base = G.side_step_right(intensity)
-                base_name = "side_step_right"
+                transition = min(beat_interval * 0.42, 0.35)   # balanced
 
-            # ── Step 2: head bob (every beat) ─────────────────────────
-            bob = G.head_bob(intensity * 0.65)
-            base = G.blend_poses(base, bob, 1.0)
-
-            # ── Step 3: alternating arm swing (every 2 beats) ─────────
-            if half_beat == 0:
-                arm = G.arm_swing_right(intensity * 0.85)
+            # Frequency band category
+            if cent < cent_p33:
+                freq_band = "bass"
+            elif cent > cent_p66:
+                freq_band = "treble"
             else:
-                arm = G.arm_swing_left(intensity * 0.85)
-            base = G.blend_poses(base, arm, 1.0)
+                freq_band = "mid"
 
-            # ── Step 4: accent on beats 2 & 3 of bar ─────────────────
-            accent_name = base_name
-            if beat_in_bar in (2, 3):
-                if cent >= cent_median:
-                    # High frequency content → upper-body accent
-                    accent = (G.arm_raise_left(intensity * 0.72)
-                              if beat_in_bar == 2
-                              else G.arm_raise_right(intensity * 0.72))
-                    base = G.blend_poses(base, accent, 0.75)
-                    accent_name = "arm_raise"
+            # ── Layer 1: base lower-body ───────────────────────────────
+            # Downbeat / back-beat → full stepping gesture
+            # Weak beats (1, 3)   → ankle bounce for micro-rhythm
+            if beat_in_bar in (0, 2):
+                if freq_band == "bass" and energy >= thresh_high * 0.8:
+                    # Bass hit → sharp hip pop
+                    base = (G.hip_pop_left(intensity) if beat_in_bar == 0
+                            else G.hip_pop_right(intensity))
+                    base_name = "hip_pop_left" if beat_in_bar == 0 else "hip_pop_right"
+                elif phrase_beat == 0 and beat_in_bar == 0:
+                    # Phrase entrance → cross step for variety
+                    base = G.cross_step(intensity * 0.9)
+                    base_name = "cross_step"
                 else:
-                    # Low frequency content → lower-body punch
-                    accent = G.knee_pump(intensity * 0.75)
-                    base = G.blend_poses(base, accent, 0.65)
-                    accent_name = "knee_pump"
+                    base = (G.side_step_left(intensity) if beat_in_bar == 0
+                            else G.side_step_right(intensity))
+                    base_name = ("side_step_left" if beat_in_bar == 0
+                                 else "side_step_right")
+            else:
+                # Weak beat: ankle bounce base + light step blend
+                base = G.ankle_bounce(intensity * 0.70)
+                base_name = "ankle_bounce"
+                step = (G.side_step_right(intensity * 0.45) if beat_in_bar == 1
+                        else G.side_step_left(intensity * 0.45))
+                base = G.blend_poses(base, step, 0.55)
 
-            # ── Step 5: energy-level overlay ──────────────────────────
-            if energy >= thresh_high:
-                if beat_in_bar == 0:
-                    climax = G.celebrate(intensity * 0.45)
-                    base = G.blend_poses(base, climax, 0.42)
-                    accent_name = "celebrate"
-                elif beat_in_bar == 2:
-                    # Alternate wave on high-energy back-beats
-                    wave = (G.robot_wave_right(intensity * 0.6)
-                            if (i // 4) % 2 == 0
-                            else G.robot_wave_left(intensity * 0.6))
-                    base = G.blend_poses(base, wave, 0.45)
-                    accent_name = "robot_wave"
-            elif energy <= thresh_low:
-                low = G.low_energy(0.55)
-                base = G.blend_poses(base, low, 0.50)
-                if accent_name.startswith("side_step"):
-                    accent_name = "low_energy"
+            # ── Layer 2: head movement (varied per bar/beat) ───────────
+            if beat_in_bar in (0, 1):
+                head_g = G.head_bob(intensity * 0.55)
+            elif beat_in_bar == 2:
+                head_g = (G.head_sway_left(intensity * 0.60) if bar_num % 2 == 0
+                          else G.head_sway_right(intensity * 0.60))
+            else:
+                head_g = (G.head_sway_right(intensity * 0.50) if bar_num % 2 == 0
+                          else G.head_sway_left(intensity * 0.50))
+            base = G.blend_poses(base, head_g, 1.0)
 
-            # ── Step 6: 8-beat phrase lean for musical phrasing ───────
+            # ── Layer 3: arm movement (frequency-band driven) ──────────
+            arm_name = base_name
+            if beat_in_bar in (0, 2):
+                if freq_band == "treble" and energy >= thresh_high * 0.7:
+                    # Bright/high content → pointing gesture; downbeat=left, back-beat=right
+                    arm = (G.point_left(intensity * 0.80) if beat_in_bar == 0
+                           else G.point_right(intensity * 0.80))
+                    arm_name = "point_left" if beat_in_bar == 0 else "point_right"
+                    base = G.blend_poses(base, arm, 0.70)
+                elif freq_band == "mid" and phrase_beat in (2, 6):
+                    # Mid-frequency, mid-phrase → shoulder shimmy
+                    base = G.blend_poses(base, G.shoulder_shimmy(intensity * 0.90), 0.80)
+                    arm_name = "shoulder_shimmy"
+                elif freq_band == "bass" and phrase_beat in (0, 1):
+                    # Bass + phrase start → running man; downbeat=left, back-beat=right
+                    arm = (G.running_man_left(intensity * 0.85) if beat_in_bar == 0
+                           else G.running_man_right(intensity * 0.85))
+                    arm_name = "running_man_left" if beat_in_bar == 0 else "running_man_right"
+                    base = G.blend_poses(base, arm, 0.75)
+                else:
+                    # Default: alternating arm swing
+                    arm = (G.arm_swing_right(intensity * 0.85) if half_beat == 0
+                           else G.arm_swing_left(intensity * 0.85))
+                    base = G.blend_poses(base, arm, 1.0)
+            else:
+                # Weak beats: light arm fill on treble passages
+                if freq_band == "treble":
+                    arm = (G.robot_wave_right(intensity * 0.40) if beat_in_bar == 1
+                           else G.robot_wave_left(intensity * 0.40))
+                    base = G.blend_poses(base, arm, 0.50)
+
+            # ── Layer 4: back-beat (beat 2) upper-body accent ──────────
+            # Only applies when Layer 3 used the default arm-swing path
+            # (arm_name unchanged from base_name), so specialized gestures are preserved.
+            if beat_in_bar == 2 and arm_name == base_name:
+                if freq_band == "treble":
+                    accent = (G.arm_raise_left(intensity * 0.72) if bar_num % 2 == 0
+                              else G.arm_raise_right(intensity * 0.72))
+                    base = G.blend_poses(base, accent, 0.72)
+                    arm_name = "arm_raise"
+                elif freq_band == "bass":
+                    base = G.blend_poses(base, G.knee_pump(intensity * 0.75), 0.65)
+                    arm_name = "knee_pump"
+                else:
+                    # Mid-freq back-beat → shoulder shimmy
+                    base = G.blend_poses(base, G.shoulder_shimmy(intensity * 0.60), 0.55)
+                    arm_name = "shoulder_shimmy"
+
+            # ── Layer 5: phrase-level body lean (every 8 beats) ───────
             if phrase_beat == 0:
-                lean = G.body_lean_left(intensity * 0.35)
-                base = G.blend_poses(base, lean, 0.50)
+                base = G.blend_poses(base, G.body_lean_left(intensity * 0.55), 0.55)
             elif phrase_beat == 4:
-                lean = G.body_lean_right(intensity * 0.35)
-                base = G.blend_poses(base, lean, 0.50)
+                base = G.blend_poses(base, G.body_lean_right(intensity * 0.55), 0.55)
+
+            # ── Layer 6: section climax (every 16 beats) ──────────────
+            gesture_name = arm_name
+            if section_beat == 0 and energy >= thresh_high * 0.85:
+                climax = (G.celebrate(intensity * 0.55) if bar_num % 2 == 0
+                          else G.wave_hands_up(intensity * 0.55))
+                base = G.blend_poses(base, climax, 0.48)
+                gesture_name = "celebrate" if bar_num % 2 == 0 else "wave_hands_up"
+            elif section_beat == 8 and energy >= thresh_high * 0.70:
+                base = G.blend_poses(base, G.arm_raise_both(intensity * 0.50), 0.45)
+                gesture_name = "arm_raise_both"
+
+            # ── Layer 7: energy extreme overlays ──────────────────────
+            if energy >= thresh_high and beat_in_bar == 0 and section_beat not in (0, 8):
+                # Periodic freeze on high-energy downbeats (every 12 beats)
+                if i % 12 == 0:
+                    base = G.blend_poses(base, G.freeze(intensity * 0.45), 0.40)
+                    gesture_name = "freeze"
+            elif energy <= thresh_low:
+                base = G.blend_poses(base, G.low_energy(0.55), 0.45)
+                if gesture_name in ("side_step_left", "side_step_right", "ankle_bounce"):
+                    gesture_name = "low_energy"
+
+            # ── Anti-repetition: break consecutive same-gesture runs ──
+            if (len(last_gestures) >= 2
+                    and all(g == gesture_name for g in list(last_gestures)[-2:])):
+                if beat_in_bar in (0, 2):
+                    break_g = (G.shoulder_shimmy(intensity * 0.50)
+                               if freq_band != "mid"
+                               else G.cross_step(intensity * 0.50))
+                    base = G.blend_poses(base, break_g, 0.35)
+                    gesture_name = "break_" + gesture_name
+
+            last_gestures.append(gesture_name)
 
             keyframes.append(Keyframe(
                 time=float(beat_time),
                 pose=base,
                 transition=transition,
-                gesture_name=accent_name,
+                gesture_name=gesture_name,
             ))
 
         # ── return to home at end ─────────────────────────────────────

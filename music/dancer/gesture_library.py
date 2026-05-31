@@ -79,24 +79,26 @@ def head_sway_right(intensity: float = 1.0) -> Pose:
 # ---------------------------------------------------------------------------
 
 def side_step_left(intensity: float = 1.0) -> Pose:
-    """Weight shift to left. Hip tilts left, right knee lifts slightly.
+    """Weight shift to left. Hip tilts left, right knee lifts, right ankle tilts.
     This is the primary on-beat pose for even beats.
     """
     return clamp_pose(Pose(
-        hip_left=14.0 * intensity,
-        hip_right=-6.0 * intensity,
-        knee_right=12.0 * intensity,
-        head_yaw=-8.0 * intensity,
+        hip_left=18.0 * intensity,
+        hip_right=-8.0 * intensity,
+        knee_right=15.0 * intensity,
+        ankle_right=8.0 * intensity,   # lifted foot tilt
+        head_yaw=-10.0 * intensity,
     ))
 
 
 def side_step_right(intensity: float = 1.0) -> Pose:
-    """Weight shift to right. Hip tilts right, left knee lifts slightly."""
+    """Weight shift to right. Hip tilts right, left knee lifts, left ankle tilts."""
     return clamp_pose(Pose(
-        hip_right=14.0 * intensity,
-        hip_left=-6.0 * intensity,
-        knee_left=12.0 * intensity,
-        head_yaw=8.0 * intensity,
+        hip_right=18.0 * intensity,
+        hip_left=-8.0 * intensity,
+        knee_left=15.0 * intensity,
+        ankle_left=8.0 * intensity,    # lifted foot tilt
+        head_yaw=10.0 * intensity,
     ))
 
 
@@ -112,24 +114,26 @@ def knee_pump(intensity: float = 1.0) -> Pose:
 
 
 def body_lean_left(intensity: float = 1.0) -> Pose:
-    """Whole body leans left — melodic sway."""
+    """Whole body leans left — melodic sway. Bigger amplitude for visible phrasing."""
     return clamp_pose(Pose(
-        hip_left=10.0 * intensity,
-        hip_right=-4.0 * intensity,
-        head_yaw=-6.0 * intensity,
-        shoulder_left=8.0 * intensity,
-        shoulder_right=-8.0 * intensity,
+        hip_left=20.0 * intensity,
+        hip_right=-6.0 * intensity,
+        head_yaw=-10.0 * intensity,
+        shoulder_left=18.0 * intensity,
+        shoulder_right=-12.0 * intensity,
+        knee_right=8.0 * intensity,
     ))
 
 
 def body_lean_right(intensity: float = 1.0) -> Pose:
     """Whole body leans right."""
     return clamp_pose(Pose(
-        hip_right=10.0 * intensity,
-        hip_left=-4.0 * intensity,
-        head_yaw=6.0 * intensity,
-        shoulder_right=8.0 * intensity,
-        shoulder_left=-8.0 * intensity,
+        hip_right=20.0 * intensity,
+        hip_left=-6.0 * intensity,
+        head_yaw=10.0 * intensity,
+        shoulder_right=18.0 * intensity,
+        shoulder_left=-12.0 * intensity,
+        knee_left=8.0 * intensity,
     ))
 
 
@@ -223,7 +227,7 @@ def robot_wave_left(intensity: float = 1.0) -> Pose:
 # ---------------------------------------------------------------------------
 
 def celebrate(intensity: float = 1.0) -> Pose:
-    """Both arms up, head back — climax / chorus peak celebration."""
+    """Both arms up, head back, tiptoe — climax / chorus peak celebration."""
     return clamp_pose(Pose(
         shoulder_left=-80.0 * intensity,
         shoulder_right=-80.0 * intensity,
@@ -232,6 +236,8 @@ def celebrate(intensity: float = 1.0) -> Pose:
         head_pitch=-20.0 * intensity,
         knee_left=22.0 * intensity,
         knee_right=22.0 * intensity,
+        ankle_left=14.0 * intensity,   # tiptoe
+        ankle_right=14.0 * intensity,
     ))
 
 
@@ -254,4 +260,153 @@ def attention(intensity: float = 1.0) -> Pose:
         head_pitch=-5.0 * intensity,
         shoulder_left=5.0 * intensity,
         shoulder_right=5.0 * intensity,
+    ))
+
+
+# ---------------------------------------------------------------------------
+# New expressive gestures
+# ---------------------------------------------------------------------------
+
+def hip_pop_left(intensity: float = 1.0) -> Pose:
+    """Sharp hip pop to the left — bass hit accent with push-off ankle."""
+    return clamp_pose(Pose(
+        hip_left=22.0 * intensity,
+        hip_right=-10.0 * intensity,
+        knee_right=18.0 * intensity,
+        ankle_left=-8.0 * intensity,   # push-off foot
+        shoulder_left=-12.0 * intensity,
+        shoulder_right=8.0 * intensity,
+        head_yaw=-8.0 * intensity,
+    ))
+
+
+def hip_pop_right(intensity: float = 1.0) -> Pose:
+    """Sharp hip pop to the right."""
+    return clamp_pose(Pose(
+        hip_right=22.0 * intensity,
+        hip_left=-10.0 * intensity,
+        knee_left=18.0 * intensity,
+        ankle_right=-8.0 * intensity,
+        shoulder_right=-12.0 * intensity,
+        shoulder_left=8.0 * intensity,
+        head_yaw=8.0 * intensity,
+    ))
+
+
+def shoulder_shimmy(intensity: float = 1.0) -> Pose:
+    """Left shoulder rolls forward, right back — mid-frequency groove."""
+    return clamp_pose(Pose(
+        shoulder_left=-30.0 * intensity,
+        shoulder_right=25.0 * intensity,
+        elbow_left=45.0 * intensity,
+        elbow_right=35.0 * intensity,
+        head_yaw=-8.0 * intensity,
+        hip_left=5.0 * intensity,
+    ))
+
+
+def point_left(intensity: float = 1.0) -> Pose:
+    """Left arm extends to the side — declarative, treble-driven gesture."""
+    return clamp_pose(Pose(
+        shoulder_left=-70.0 * intensity,
+        elbow_left=5.0 * intensity,    # nearly straight
+        shoulder_right=15.0 * intensity,
+        head_yaw=-18.0 * intensity,
+        hip_right=5.0 * intensity,
+    ))
+
+
+def point_right(intensity: float = 1.0) -> Pose:
+    """Right arm extends to the side."""
+    return clamp_pose(Pose(
+        shoulder_right=-70.0 * intensity,
+        elbow_right=5.0 * intensity,
+        shoulder_left=15.0 * intensity,
+        head_yaw=18.0 * intensity,
+        hip_left=5.0 * intensity,
+    ))
+
+
+def wave_hands_up(intensity: float = 1.0) -> Pose:
+    """Both arms spread upward and out — open, celebratory chorus arrival."""
+    return clamp_pose(Pose(
+        shoulder_left=-65.0 * intensity,
+        shoulder_right=-65.0 * intensity,
+        elbow_left=22.0 * intensity,
+        elbow_right=22.0 * intensity,
+        head_pitch=-12.0 * intensity,
+        knee_left=15.0 * intensity,
+        knee_right=15.0 * intensity,
+        ankle_left=10.0 * intensity,
+        ankle_right=10.0 * intensity,
+    ))
+
+
+def cross_step(intensity: float = 1.0) -> Pose:
+    """Weight crosses: left hip pushes while right foot steps.
+    Creates cha-cha / cross-step character at phrase entrances.
+    """
+    return clamp_pose(Pose(
+        hip_left=20.0 * intensity,
+        hip_right=-18.0 * intensity,
+        knee_right=22.0 * intensity,
+        ankle_right=10.0 * intensity,
+        shoulder_left=-25.0 * intensity,
+        shoulder_right=12.0 * intensity,
+        head_yaw=-12.0 * intensity,
+    ))
+
+
+def ankle_bounce(intensity: float = 1.0) -> Pose:
+    """Subtle ankle/knee bounce — fills weak beats with micro-rhythm."""
+    return clamp_pose(Pose(
+        ankle_left=15.0 * intensity,
+        ankle_right=15.0 * intensity,
+        knee_left=10.0 * intensity,
+        knee_right=10.0 * intensity,
+        head_pitch=5.0 * intensity,
+    ))
+
+
+def freeze(intensity: float = 1.0) -> Pose:
+    """Sudden pose lock — dramatic pause on a percussive hit."""
+    return clamp_pose(Pose(
+        knee_left=25.0 * intensity,
+        knee_right=25.0 * intensity,
+        hip_left=10.0 * intensity,
+        hip_right=-10.0 * intensity,
+        shoulder_left=-30.0 * intensity,
+        shoulder_right=20.0 * intensity,
+        elbow_left=40.0 * intensity,
+        head_pitch=8.0 * intensity,
+        head_yaw=-6.0 * intensity,
+        ankle_left=12.0 * intensity,
+    ))
+
+
+def running_man_left(intensity: float = 1.0) -> Pose:
+    """Running-man: left knee pumps high, right arm swings forward."""
+    return clamp_pose(Pose(
+        hip_left=18.0 * intensity,
+        knee_left=35.0 * intensity,
+        ankle_left=12.0 * intensity,
+        hip_right=-8.0 * intensity,
+        shoulder_right=-32.0 * intensity,
+        elbow_right=22.0 * intensity,
+        shoulder_left=15.0 * intensity,
+        head_yaw=-5.0 * intensity,
+    ))
+
+
+def running_man_right(intensity: float = 1.0) -> Pose:
+    """Running-man: right knee pumps high, left arm swings forward."""
+    return clamp_pose(Pose(
+        hip_right=18.0 * intensity,
+        knee_right=35.0 * intensity,
+        ankle_right=12.0 * intensity,
+        hip_left=-8.0 * intensity,
+        shoulder_left=-32.0 * intensity,
+        elbow_left=22.0 * intensity,
+        shoulder_right=15.0 * intensity,
+        head_yaw=5.0 * intensity,
     ))

@@ -162,19 +162,23 @@ class TestDanceChoreographer:
             self.choreo.choreograph_dance(feats)
 
     def test_alternating_side_steps(self):
-        """Even-indexed beat keyframes should be side_step_left or derive from it."""
+        """Bar structure: downbeat (beat_in_bar=0) uses side_step_left base (hip_left > 0),
+        back-beat (beat_in_bar=2) uses side_step_right base (hip_right > 0).
+        Weak beats (1, 3) use ankle_bounce base which keeps hip values small.
+        """
         feats = make_features(n_beats=8, tempo=120.0)
         kfs = self.choreo.choreograph_dance(feats)
         # skip home at index 0; beat keyframes start at index 1
         beat_kfs = kfs[1:-1]
         for i, kf in enumerate(beat_kfs):
-            if i % 2 == 0:
-                # Even beat → side_step_left base → hip_left should be positive
+            beat_in_bar = i % 4
+            if beat_in_bar == 0:
+                # Downbeat → side_step_left base → net hip_left should be positive
                 assert kf.pose.hip_left >= 0, (
-                    f"Beat {i}: expected hip_left >= 0, got {kf.pose.hip_left:.1f}"
+                    f"Beat {i} (downbeat): expected hip_left >= 0, got {kf.pose.hip_left:.1f}"
                 )
-            else:
-                # Odd beat → side_step_right base → hip_right should be positive
+            elif beat_in_bar == 2:
+                # Back-beat → side_step_right base → net hip_right should be positive
                 assert kf.pose.hip_right >= 0, (
-                    f"Beat {i}: expected hip_right >= 0, got {kf.pose.hip_right:.1f}"
+                    f"Beat {i} (back-beat): expected hip_right >= 0, got {kf.pose.hip_right:.1f}"
                 )
