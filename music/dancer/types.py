@@ -18,6 +18,9 @@ class JointType(Enum):
     KNEE_RIGHT = "knee_right"
     ANKLE_LEFT = "ankle_left"
     ANKLE_RIGHT = "ankle_right"
+    SHOULDER_LEFT_Z = "shoulder_left_z"    # 侧向外展（Z轴）
+    SHOULDER_RIGHT_Z = "shoulder_right_z"
+    TORSO_TWIST = "torso_twist"           # 上身Y轴扭转
 
 
 class MovementStyle(Enum):
@@ -45,6 +48,9 @@ JOINT_LIMITS: Dict[str, Tuple[float, float]] = {
     "knee_right":     (  0.0,  90.0),
     "ankle_left":     (-20.0,  20.0),
     "ankle_right":    (-20.0,  20.0),
+    "shoulder_left_z":  (-80.0,  80.0),   # 侧向外展：正值 = 手臂向外张开
+    "shoulder_right_z": (-80.0,  80.0),
+    "torso_twist":      (-25.0,  25.0),   # 上身扭转：正值 = 向右扭
 }
 
 
@@ -67,6 +73,9 @@ class Pose:
     knee_right:     float = 0.0
     ankle_left:     float = 0.0
     ankle_right:    float = 0.0
+    shoulder_left_z:  float = 0.0  # 左臂侧向外展（Z轴），正值向外
+    shoulder_right_z: float = 0.0  # 右臂侧向外展（Z轴），正值向外
+    torso_twist:      float = 0.0  # 上身Y轴扭转，正值向右
 
 
 @dataclass

@@ -335,7 +335,8 @@ function robtic() {
     function lerpPose(a, b, t) {
         const e = easeInOut(t);
         const keys = ['head_yaw','head_pitch','shoulder_left','shoulder_right','elbow_left','elbow_right',
-                       'hip_left','hip_right','knee_left','knee_right','ankle_left','ankle_right'];
+                       'hip_left','hip_right','knee_left','knee_right','ankle_left','ankle_right',
+                       'shoulder_left_z','shoulder_right_z','torso_twist'];
         const r = {};
         for (const k of keys) r[k] = a[k] + (b[k] - a[k]) * e;
         return r;
@@ -368,6 +369,9 @@ function robtic() {
         const hipDiff = pose.hip_left - pose.hip_right;
         body.rotation.z       = -hipDiff * 0.003;
         upperTorso.rotation.z = -hipDiff * 0.002;
+        leftShoulderPivot.rotation.z  =  (pose.shoulder_left_z  || 0) * DEG;
+        rightShoulderPivot.rotation.z = -(pose.shoulder_right_z || 0) * DEG;
+        upperTorso.rotation.y         =  (pose.torso_twist      || 0) * DEG;
     }
 
     function updatePoseAnimation() {
@@ -405,7 +409,8 @@ function robtic() {
         currentBeatIndex = 0; lastAppliedPoseTime = -1;
         applyPose({ head_yaw:0, head_pitch:0, shoulder_left:0, shoulder_right:0,
                     elbow_left:0, elbow_right:0, hip_left:0, hip_right:0,
-                    knee_left:0, knee_right:0, ankle_left:0, ankle_right:0 });
+                    knee_left:0, knee_right:0, ankle_left:0, ankle_right:0,
+                    shoulder_left_z:0, shoulder_right_z:0, torso_twist:0 });
     }
 
     function updateTimeDisplay() {

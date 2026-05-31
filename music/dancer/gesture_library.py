@@ -410,3 +410,111 @@ def running_man_right(intensity: float = 1.0) -> Pose:
         shoulder_right=15.0 * intensity,
         head_yaw=5.0 * intensity,
     ))
+
+
+# ---------------------------------------------------------------------------
+# Lateral & twist gestures — new expressive 3D movements
+# ---------------------------------------------------------------------------
+
+def arm_spread_left(intensity: float = 1.0) -> Pose:
+    """Left arm abducts sideways to shoulder height — open lateral pose."""
+    return clamp_pose(Pose(
+        shoulder_left_z=55.0 * intensity,
+        shoulder_left=-10.0 * intensity,
+        elbow_left=12.0 * intensity,
+        head_yaw=-15.0 * intensity,
+        hip_right=4.0 * intensity,
+    ))
+
+
+def arm_spread_right(intensity: float = 1.0) -> Pose:
+    """Right arm abducts sideways to shoulder height."""
+    return clamp_pose(Pose(
+        shoulder_right_z=55.0 * intensity,
+        shoulder_right=-10.0 * intensity,
+        elbow_right=12.0 * intensity,
+        head_yaw=15.0 * intensity,
+        hip_left=4.0 * intensity,
+    ))
+
+
+def arm_spread_both(intensity: float = 1.0) -> Pose:
+    """T-pose spread — both arms fully extended sideways, section climax."""
+    return clamp_pose(Pose(
+        shoulder_left_z=65.0 * intensity,
+        shoulder_right_z=65.0 * intensity,
+        shoulder_left=-5.0 * intensity,
+        shoulder_right=-5.0 * intensity,
+        elbow_left=8.0 * intensity,
+        elbow_right=8.0 * intensity,
+        head_pitch=-5.0 * intensity,
+        knee_left=12.0 * intensity,
+        knee_right=12.0 * intensity,
+    ))
+
+
+def cheer(intensity: float = 1.0) -> Pose:
+    """V-shape — arms raised AND spread outward; triumphant chorus peak."""
+    return clamp_pose(Pose(
+        shoulder_left_z=45.0 * intensity,
+        shoulder_right_z=45.0 * intensity,
+        shoulder_left=-55.0 * intensity,
+        shoulder_right=-55.0 * intensity,
+        elbow_left=30.0 * intensity,
+        elbow_right=30.0 * intensity,
+        head_pitch=-18.0 * intensity,
+        knee_left=20.0 * intensity,
+        knee_right=20.0 * intensity,
+        ankle_left=12.0 * intensity,
+        ankle_right=12.0 * intensity,
+    ))
+
+
+def robot_dab_left(intensity: float = 1.0) -> Pose:
+    """Hip-hop dab: left arm shoots forward-up, right arm folds across face."""
+    return clamp_pose(Pose(
+        shoulder_left=-65.0 * intensity,
+        elbow_left=8.0 * intensity,
+        shoulder_left_z=15.0 * intensity,
+        shoulder_right=-38.0 * intensity,
+        elbow_right=100.0 * intensity,
+        head_pitch=14.0 * intensity,
+        head_yaw=-10.0 * intensity,
+        hip_right=8.0 * intensity,
+        knee_right=10.0 * intensity,
+    ))
+
+
+def robot_dab_right(intensity: float = 1.0) -> Pose:
+    """Hip-hop dab: right arm shoots forward-up, left arm folds across face."""
+    return clamp_pose(Pose(
+        shoulder_right=-65.0 * intensity,
+        elbow_right=8.0 * intensity,
+        shoulder_right_z=15.0 * intensity,
+        shoulder_left=-38.0 * intensity,
+        elbow_left=100.0 * intensity,
+        head_pitch=14.0 * intensity,
+        head_yaw=10.0 * intensity,
+        hip_left=8.0 * intensity,
+        knee_left=10.0 * intensity,
+    ))
+
+
+def torso_twist_left(intensity: float = 1.0) -> Pose:
+    """Upper body rotates left; arms counterbalance for weight shift."""
+    return clamp_pose(Pose(
+        torso_twist=-20.0 * intensity,
+        shoulder_right=-12.0 * intensity,
+        shoulder_left=8.0 * intensity,
+        head_yaw=-18.0 * intensity,
+    ))
+
+
+def torso_twist_right(intensity: float = 1.0) -> Pose:
+    """Upper body rotates right."""
+    return clamp_pose(Pose(
+        torso_twist=20.0 * intensity,
+        shoulder_left=-12.0 * intensity,
+        shoulder_right=8.0 * intensity,
+        head_yaw=18.0 * intensity,
+    ))

@@ -163,10 +163,15 @@ class DanceChoreographer:
             arm_name = base_name
             if beat_in_bar in (0, 2):
                 if freq_band == "treble" and energy >= thresh_high * 0.7:
-                    # Bright/high content → pointing gesture; downbeat=left, back-beat=right
-                    arm = (G.point_left(intensity * 0.80) if beat_in_bar == 0
-                           else G.point_right(intensity * 0.80))
-                    arm_name = "point_left" if beat_in_bar == 0 else "point_right"
+                    # Bright/high content → alternate point and dab every 3 bars
+                    if bar_num % 3 == 2:
+                        arm = (G.robot_dab_left(intensity * 0.80) if beat_in_bar == 0
+                               else G.robot_dab_right(intensity * 0.80))
+                        arm_name = "robot_dab_left" if beat_in_bar == 0 else "robot_dab_right"
+                    else:
+                        arm = (G.point_left(intensity * 0.80) if beat_in_bar == 0
+                               else G.point_right(intensity * 0.80))
+                        arm_name = "point_left" if beat_in_bar == 0 else "point_right"
                     base = G.blend_poses(base, arm, 0.70)
                 elif freq_band == "mid" and phrase_beat in (2, 6):
                     # Mid-frequency, mid-phrase → shoulder shimmy
@@ -179,9 +184,13 @@ class DanceChoreographer:
                     arm_name = "running_man_left" if beat_in_bar == 0 else "running_man_right"
                     base = G.blend_poses(base, arm, 0.75)
                 else:
-                    # Default: alternating arm swing
-                    arm = (G.arm_swing_right(intensity * 0.85) if half_beat == 0
-                           else G.arm_swing_left(intensity * 0.85))
+                    # Default: arm swing; use lateral spread every 4th bar for variety
+                    if bar_num % 4 == 2:
+                        arm = (G.arm_spread_left(intensity * 0.80) if half_beat == 0
+                               else G.arm_spread_right(intensity * 0.80))
+                    else:
+                        arm = (G.arm_swing_right(intensity * 0.85) if half_beat == 0
+                               else G.arm_swing_left(intensity * 0.85))
                     base = G.blend_poses(base, arm, 1.0)
             else:
                 # Weak beats: light arm fill on treble passages
@@ -195,10 +204,16 @@ class DanceChoreographer:
             # (arm_name unchanged from base_name), so specialized gestures are preserved.
             if beat_in_bar == 2 and arm_name == base_name:
                 if freq_band == "treble":
-                    accent = (G.arm_raise_left(intensity * 0.72) if bar_num % 2 == 0
-                              else G.arm_raise_right(intensity * 0.72))
+                    # Alternate arm raise and lateral spread every 2 bars
+                    if bar_num % 4 < 2:
+                        accent = (G.arm_raise_left(intensity * 0.72) if bar_num % 2 == 0
+                                  else G.arm_raise_right(intensity * 0.72))
+                        arm_name = "arm_raise"
+                    else:
+                        accent = (G.arm_spread_left(intensity * 0.72) if bar_num % 2 == 0
+                                  else G.arm_spread_right(intensity * 0.72))
+                        arm_name = "arm_spread"
                     base = G.blend_poses(base, accent, 0.72)
-                    arm_name = "arm_raise"
                 elif freq_band == "bass":
                     base = G.blend_poses(base, G.knee_pump(intensity * 0.75), 0.65)
                     arm_name = "knee_pump"
@@ -207,19 +222,23 @@ class DanceChoreographer:
                     base = G.blend_poses(base, G.shoulder_shimmy(intensity * 0.60), 0.55)
                     arm_name = "shoulder_shimmy"
 
-            # ── Layer 5: phrase-level body lean (every 8 beats) ───────
+            # ── Layer 5: phrase-level body lean + torso twist (every 8 beats) ─
             if phrase_beat == 0:
                 base = G.blend_poses(base, G.body_lean_left(intensity * 0.55), 0.55)
+                base = G.blend_poses(base, G.torso_twist_left(intensity * 0.30), 0.30)
             elif phrase_beat == 4:
                 base = G.blend_poses(base, G.body_lean_right(intensity * 0.55), 0.55)
+                base = G.blend_poses(base, G.torso_twist_right(intensity * 0.30), 0.30)
 
             # ── Layer 6: section climax (every 16 beats) ──────────────
             gesture_name = arm_name
             if section_beat == 0 and energy >= thresh_high * 0.85:
-                climax = (G.celebrate(intensity * 0.55) if bar_num % 2 == 0
-                          else G.wave_hands_up(intensity * 0.55))
+                # 4-gesture rotation: celebrate → wave_hands_up → cheer → arm_spread_both
+                _climax_funcs = [G.celebrate, G.wave_hands_up, G.cheer, G.arm_spread_both]
+                _climax_names = ["celebrate", "wave_hands_up", "cheer", "arm_spread_both"]
+                climax = _climax_funcs[bar_num % 4](intensity * 0.55)
                 base = G.blend_poses(base, climax, 0.48)
-                gesture_name = "celebrate" if bar_num % 2 == 0 else "wave_hands_up"
+                gesture_name = _climax_names[bar_num % 4]
             elif section_beat == 8 and energy >= thresh_high * 0.70:
                 base = G.blend_poses(base, G.arm_raise_both(intensity * 0.50), 0.45)
                 gesture_name = "arm_raise_both"
